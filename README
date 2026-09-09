@@ -13,7 +13,7 @@ no prefix key, no panes, no copy mode. chrome shortcuts with ⌥ instead of ⌘:
 
 usage:
 
-    $ curl -o /usr/local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs
+    $ curl -o /usr/local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x /usr/local/bin/tabs
     $ tabs
 
