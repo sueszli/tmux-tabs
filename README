@@ -9,7 +9,6 @@ no prefix key, no panes, no copy mode. chrome shortcuts with ⌥ instead of ⌘:
 
     ⌥T        new tab (pick claude / codex / pi / opencode / shell)
     ⌥W        close tab
-    ⌥1-9      jump to tab
     ⌥⇥ ⌥⇧⇥    next / previous tab
 
 usage:
