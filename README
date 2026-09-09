@@ -5,17 +5,16 @@
 
 tmux with everything removed except tabs. for running coding agents and ssh work.
 
-no prefix key, no panes, no copy mode. chrome shortcuts only:
+no prefix key, no panes, no copy mode. chrome shortcuts with ⌥ instead of ⌘:
 
-    ⌘T        new tab (pick claude / codex / pi / opencode / shell)
-    ⌘W        close tab
-    ⌘1-9      jump to tab
-    ⌃⇥ ⌃⇧⇥    next / previous tab
+    ⌥T        new tab (pick claude / codex / pi / opencode / shell)
+    ⌥W        close tab
+    ⌥1-9      jump to tab
+    ⌥⇥ ⌥⇧⇥    next / previous tab
 
 usage:
 
     $ git clone https://github.com/sueszli/tmux-tabs ~/.tmux-tabs
-    $ cat ~/.tmux-tabs/ghostty >> ~/.config/ghostty/config
     $ alias tabs=~/.tmux-tabs/tmux-tabs
     $ tabs
 
@@ -23,5 +22,5 @@ closing the terminal leaves the agents running. `tabs` reattaches.
 
 runs on its own socket, your ~/.tmux.conf is untouched.
 
-needs a terminal that can send ⌘ as escape sequences (ghostty config included;
-kitty/wezterm/iterm2 work the same way). terminal.app can't, use ⌥ there instead.
+macOS terminal.app: settings > profiles > keyboard > "use option as meta key".
+(⌘ itself can't be remapped in terminal.app, hence ⌥.)
