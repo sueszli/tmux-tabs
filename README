@@ -1,0 +1,26 @@
+ _                          _        _
+| |_ _ __ ___  _   ___  __ | |_ __ _| |__  ___
+| __| '_ ` _ \| | | \ \/ / | __/ _` | '_ \/ __|
+| |_| | | | | | |_| |>  <  | || (_| | |_) \__ \
+ \__|_| |_| |_|\__,_/_/\_\  \__\__,_|_.__/|___/
+
+tmux with everything removed except tabs. for running coding agents and ssh work.
+
+no prefix key, no panes, no copy mode. browser shortcuts only:
+
+    ⌥N        new tab (pick claude / codex / pi / opencode / shell)
+    ⌥W        close tab
+    ⌥1-9      jump to tab
+    ⌥⇥ ⌥⇧⇥    next / previous tab
+
+usage:
+
+    $ git clone https://github.com/sueszli/tmux-tabs ~/.tmux-tabs
+    $ alias tabs=~/.tmux-tabs/tmux-tabs
+    $ tabs
+
+closing the terminal leaves the agents running. `tabs` reattaches.
+
+runs on its own socket, your ~/.tmux.conf is untouched.
+
+macOS terminal.app: settings > profiles > keyboard > "use option as meta key".

@@ -1,0 +1,3 @@
+#!/bin/sh
+# attach to the tmux-tabs session, or start it. own socket so ~/.tmux.conf is untouched.
+exec tmux -L tabs -f "$(dirname "$(readlink -f "$0")")/tmux-tabs.conf" new-session -A -s tabs "$@"
