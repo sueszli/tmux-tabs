@@ -13,8 +13,8 @@ no prefix key, no panes, no copy mode. chrome shortcuts with ⌥ instead of ⌘:
 
 usage:
 
-    $ git clone https://github.com/sueszli/tmux-tabs ~/.tmux-tabs
-    $ alias tabs=~/.tmux-tabs/tmux-tabs
+    $ curl -o /usr/local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs
+    $ chmod +x /usr/local/bin/tabs
     $ tabs
 
 closing the terminal leaves the agents running. `tabs` reattaches.
