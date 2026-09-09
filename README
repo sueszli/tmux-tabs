@@ -11,15 +11,19 @@ no prefix key, no panes, no copy mode. chrome shortcuts with ⌥ instead of ⌘:
     ⌥W        close tab
     ⌥⇥ ⌥⇧⇥    next / previous tab
 
-usage:
+install:
 
+    $ mkdir -p ~/.local/bin
     $ curl -o ~/.local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x ~/.local/bin/tabs
-    $ tabs
-
-closing the terminal leaves the agents running. `tabs` reattaches.
-
-runs on its own socket, your ~/.tmux.conf is untouched.
 
 macOS terminal.app: settings > profiles > keyboard > "use option as meta key".
-(⌘ itself can't be remapped in terminal.app, hence ⌥.)
+without it ⌥T types † instead. (⌘ itself can't be remapped in terminal.app, hence ⌥.)
+
+usage:
+
+    $ tabs
+
+closing the terminal window leaves the agents running. `tabs` reattaches.
+tabs close themselves when the agent exits. runs on its own tmux socket, your
+~/.tmux.conf is untouched.
