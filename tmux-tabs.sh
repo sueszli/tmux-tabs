@@ -1,6 +1,4 @@
 #!/bin/bash
-# tmux-tabs: tmux stripped down to browser-style tabs. no prefix, no panes.
-# own socket, so ~/.tmux.conf is untouched. attaches if already running.
 exec tmux -L tabs -f <(cat <<'CONF'
 set -g prefix None
 set -g base-index 1
