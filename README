@@ -3,7 +3,8 @@
  |   |   |   | |   | `  <   |   (   | |   |\__ \
 \__|_|  _|  _|\__,_| _/\_\ \__|\__,_|_.__/ ____/
 
-tmux with everything removed except tabs. for coding agents and ssh.
+tmux reduced to tabs. no prefix key, no panes, no copy mode.
+for running coding agents and ssh sessions side by side.
 
     ┌──────────────────────────────────────────────────────────────────┐
     │ 1 shell   2 codex   3 pi  [4 claude]     ^T new  ^W close  ^← ^→ │
@@ -28,20 +29,21 @@ tmux with everything removed except tabs. for coding agents and ssh.
     │   ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents   │
     └──────────────────────────────────────────────────────────────────┘
 
-no prefix, no panes, no copy mode. chrome shortcuts:
+keys:
 
-    ctrl+T        new tab (claude / codex / pi / opencode / shell)
-    ctrl+W        close tab
+    ctrl+t        new tab (claude / codex / pi / opencode / shell)
+    ctrl+w        close tab
     ctrl+→ ←      next / previous tab
 
-install:
+requires bash and tmux ≥ 3.0. install:
 
     $ curl -o ~/.local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x ~/.local/bin/tabs
     $ tabs
 
-agents keep running when you close the window. `tabs` reattaches.
-own tmux socket, your ~/.tmux.conf is untouched. stock macOS terminal
-or any linux terminal, zero config.
+closing the terminal leaves everything running; `tabs` reattaches.
+a tab closes when its process exits. runs on its own tmux socket and
+never loads ~/.tmux.conf. works in stock macOS terminal and any linux
+terminal without configuration.
 
-(ctrl+tab is impossible in a terminal: it's the same byte as tab.)
+ctrl+tab is not bindable: terminals send it as a plain tab.
