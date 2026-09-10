@@ -5,11 +5,11 @@
 
 tmux with everything removed except tabs. for running coding agents and ssh work.
 
-no prefix key, no panes, no copy mode. chrome shortcuts with ⌥ instead of ⌘:
+no prefix key, no panes, no copy mode. chrome shortcuts:
 
-    ⌥T        new tab (pick claude / codex / pi / opencode / shell)
-    ⌥W        close tab
-    ⌥⇥ ⌥⇧⇥    next / previous tab
+    ctrl+T        new tab (pick claude / codex / pi / opencode / shell)
+    ctrl+W        close tab
+    ctrl+→ ←      next / previous tab
 
 install:
 
@@ -23,8 +23,6 @@ usage:
 
 closing the terminal window leaves the agents running. `tabs` reattaches.
 tabs close themselves when the agent exits. runs on its own tmux socket, your
-~/.tmux.conf is untouched.
+~/.tmux.conf is untouched. works in the stock macOS terminal, nothing to configure.
 
-on macOS terminal.app the first run creates a "tmux-tabs" profile (your default
-theme + "use option as meta key", otherwise ⌥T would type †) and opens a window
-with it. ⌘ itself can't be remapped in terminal.app, hence ⌥.
+(chrome's ctrl+tab is impossible in a terminal: it sends the same byte as tab.)
