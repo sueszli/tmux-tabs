@@ -33,9 +33,9 @@ run many coding agents at once and keep them alive across ssh disconnects.
 
 keys:
 
-    ctrl+t        new tab (claude / codex / pi / opencode / shell)
-    ctrl+w        close tab
-    ctrl+→ ←      next / previous tab
+    ctrl+t  ctrl+n          new tab (claude / codex / pi / opencode / shell)
+    ctrl+w                  close tab
+    ctrl+→ ←  ctrl+f b      next / previous tab
 
 
 works on mac and linux.

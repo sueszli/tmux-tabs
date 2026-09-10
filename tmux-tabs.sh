@@ -1,5 +1,6 @@
 #!/bin/bash
-exec tmux -L tabs -f <(cat <<'CONF'
+menu="display-menu -T ' new tab ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'"
+exec tmux -L tabs -f <(cat <<CONF
 set -g prefix None
 set -g base-index 1
 set -g renumber-windows on
@@ -10,9 +11,12 @@ set -g status-left ''
 set -g status-right '#[fg=colour240] ^T new  ^W close  ^← ^→ switch '
 set -g window-status-format ' #I #W '
 set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #W '
-bind -n C-t display-menu -T ' new tab ' claude c 'new-window -n claude claude' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'
+bind -n C-t $menu
+bind -n C-n $menu
 bind -n C-w kill-window
 bind -n C-Right next-window
 bind -n C-Left previous-window
+bind -n C-f next-window
+bind -n C-b previous-window
 CONF
 ) new-session -A -s tabs -n shell "$@"
