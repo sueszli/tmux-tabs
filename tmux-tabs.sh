@@ -17,4 +17,4 @@ bind -n C-w kill-window
 bind -n C-Right next-window
 bind -n C-Left previous-window
 CONF
-) new-session -A -s tabs "$@"
+) new-session -A -s tabs -n shell "$@"
