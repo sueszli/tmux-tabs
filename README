@@ -3,7 +3,17 @@
  |   |   |   | |   | `  <   |   (   | |   |\__ \
 \__|_|  _|  _|\__,_| _/\_\ \__|\__,_|_.__/ ____/
 
-tmux with everything removed except tabs. for running coding agents and ssh work.
+tmux with everything removed except tabs.
+for running coding agents and ssh work.
+
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  1 shell  [2 claude]  3 codex   4 pi      ^T new  ^W close  ^← ^→ │
+    ├──────────────────────────────────────────────────────────────────┤
+    │ > refactor the auth module and add tests                         │
+    │                                                                  │
+    │ ● Reading src/auth.ts…                                           │
+    │                                                                  │
+    └──────────────────────────────────────────────────────────────────┘
 
 no prefix key, no panes, no copy mode. chrome shortcuts:
 
@@ -22,7 +32,8 @@ usage:
     $ tabs
 
 closing the terminal window leaves the agents running. `tabs` reattaches.
-tabs close themselves when the agent exits. runs on its own tmux socket, your
-~/.tmux.conf is untouched. works in the stock macOS terminal, nothing to configure.
+tabs close themselves when the agent exits. runs on its own tmux socket,
+your ~/.tmux.conf is untouched. works in the stock macOS terminal and any
+linux terminal, nothing to configure.
 
-(chrome's ctrl+tab is impossible in a terminal: it sends the same byte as tab.)
+(chrome's ctrl+tab is impossible in a terminal: it's the same byte as tab.)
