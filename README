@@ -6,14 +6,25 @@
 tmux with everything removed except tabs.
 for running coding agents and ssh work.
 
-    ┌──────────────────────────────────────────────────────────────────┐
-    │  1 shell  [2 claude]  3 codex   4 pi      ^T new  ^W close  ^← ^→ │
-    ├──────────────────────────────────────────────────────────────────┤
-    │ > refactor the auth module and add tests                         │
-    │                                                                  │
-    │ ● Reading src/auth.ts…                                           │
-    │                                                                  │
-    └──────────────────────────────────────────────────────────────────┘
+     1 shell   2 codex   3 pi  [4 claude]      ^T new  ^W close  ^← ^→
+    ╭─ Claude Code ─────────────────────────────────────────────────╮
+    │                                                               │
+    │                      Welcome back Yahya!                      │
+    │                                                               │
+    │                            ▐▛███▜▌                            │
+    │                           ▝▜█████▛▘                           │
+    │                             ▘▘ ▝▝                             │
+    │                                                               │
+    │                Opus 5 (1M context) with xhig…                 │
+    │                          Claude Max                           │
+    │                             ~/dev                             │
+    │                                                               │
+    ╰───────────────────────────────────────────────────────────────╯
+
+    ─────────────────────────────────────────────────────────────────
+    ❯ Try "how does <filepath> work?"
+    ─────────────────────────────────────────────────────────────────
+      ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents
 
 no prefix key, no panes, no copy mode. chrome shortcuts:
 
