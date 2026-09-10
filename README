@@ -17,9 +17,6 @@ install:
     $ curl -o ~/.local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x ~/.local/bin/tabs
 
-macOS terminal.app: settings > profiles > keyboard > "use option as meta key".
-without it ⌥T types † instead. (⌘ itself can't be remapped in terminal.app, hence ⌥.)
-
 usage:
 
     $ tabs
@@ -27,3 +24,7 @@ usage:
 closing the terminal window leaves the agents running. `tabs` reattaches.
 tabs close themselves when the agent exits. runs on its own tmux socket, your
 ~/.tmux.conf is untouched.
+
+on macOS terminal.app the first run creates a "tmux-tabs" profile (your default
+theme + "use option as meta key", otherwise ⌥T would type †) and opens a window
+with it. ⌘ itself can't be remapped in terminal.app, hence ⌥.
