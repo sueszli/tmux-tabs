@@ -3,9 +3,8 @@
  |   |   |   | |   | `  <   |   (   | |   |\__ \
 \__|_|  _|  _|\__,_| _/\_\ \__|\__,_|_.__/ ____/
 
-tmux reduced to tabs. no prefix key, no panes, no copy mode.
-run many coding agents at once, and keep them alive across ssh
-disconnects.
+tmux reduced to browser-style tabs.
+run many coding agents at once and keep them alive across ssh disconnects.
 
     ┌──────────────────────────────────────────────────────────────────┐
     │ 1 shell   2 codex   3 pi  [4 claude]     ^T new  ^W close  ^← ^→ │
@@ -25,7 +24,7 @@ disconnects.
     │ ╰──────────────────────────────────────────────────────────────╯ │
     │                                                                  │
     │ ──────────────────────────────────────────────────────────────── │
-    │ ❯ Try "how does <filepath> work?"                                │
+    │ ❯ Try "how does tmux work?"                                      │
     │ ──────────────────────────────────────────────────────────────── │
     │   ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents   │
     └──────────────────────────────────────────────────────────────────┘
@@ -36,15 +35,9 @@ keys:
     ctrl+w        close tab
     ctrl+→ ←      next / previous tab
 
-requires bash and tmux ≥ 3.0. install:
+works on mac and linux.
+requires a bash and tmux ≥ 3.0. install:
 
     $ curl -o ~/.local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x ~/.local/bin/tabs
     $ tabs
-
-closing the terminal leaves everything running; `tabs` reattaches.
-a tab closes when its process exits. runs on its own tmux socket and
-never loads ~/.tmux.conf. works in stock macOS terminal and any linux
-terminal without configuration.
-
-ctrl+tab is not bindable: terminals send it as a plain tab.
