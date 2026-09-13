@@ -36,6 +36,8 @@ keys:
     ctrl+t (also: ctrl+n)        new tab (claude / codex / pi / opencode / shell)
     ctrl+w                       close tab
     ctrl+→/← (also: ctrl+f/b)    next / previous tab
+    alt+1 … alt+9                jump to tab n
+    alt+shift+→/←                move tab right / left
 
 
 works on mac and linux.
@@ -44,3 +46,6 @@ requires a bash and tmux ≥ 3.0. install:
     $ curl -o ~/.local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x ~/.local/bin/tabs
     $ tabs
+
+the alt keys need "use option as meta key" in stock macos terminal.
+every other terminal sends them as-is.
