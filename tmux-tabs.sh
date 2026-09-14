@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# f5: ask the terminal its size and resize the tabs to match, for when
-# SIGWINCH gets lost across ssh hops and tabs stay stuck at the connect-time size.
+# ctrl+t -> "fit size": ask the terminal how big it is and resize the tabs to
+# match, for when SIGWINCH gets lost across ssh hops and tabs stay stuck at the
+# size they had at connect time.
 if [ "$1" = "--resize" ]; then
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}' 2>/dev/null)
     [ -n "$tty" ] && [ -e "$tty" ] || { echo "tabs: no tmux client" >&2; exit 1; }
@@ -30,9 +31,9 @@ if [ "$1" = "--resize" ]; then
 fi
 
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-menu="display-menu -T ' new tab ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'"
-# shell tabs only: send-keys would type into an agent
-resize="if-shell -F '#{m:*sh,#{pane_current_command}}' \"send-keys '$self --resize' Enter\" \"display-message 'f5: use a shell tab to resync size'\""
+# shell tabs only: send-keys into an agent tab would type into the agent
+fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys '$self --resize' Enter\\\" \\\"display-message 'fit size: use a shell tab'\\\""
+menu="display-menu -T ' tabs ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell' '' 'fit size' f \"$fit\""
 exec tmux -L tabs -f <(cat <<CONF
 set -g prefix None
 set -g base-index 1
@@ -52,7 +53,5 @@ bind -n C-Right next-window
 bind -n C-Left previous-window
 bind -n C-f next-window
 bind -n C-b previous-window
-bind -n F5 $resize
-bind -n F6 $resize
 CONF
 ) new-session -A -s tabs -n shell "$@"
