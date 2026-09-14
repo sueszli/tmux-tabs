@@ -36,17 +36,6 @@ keys:
     ctrl+t (also: ctrl+n)        new tab (claude / codex / pi / opencode / shell)
     ctrl+w                       close tab
     ctrl+→/← (also: ctrl+f/b)    next / previous tab
-    ctrl+space                   resync size to the terminal (from a shell tab)
-
-
-stuck at a fixed width?
-
-ssh sends the window size once, at connect, and relies on SIGWINCH for every
-resize after that. across nested ssh hops that signal sometimes never arrives,
-so every layer stays pinned at the connect-time size and tabs look frozen no
-matter how you drag the window. ctrl+space asks the terminal how big it really
-is and applies the answer to every tab. it has to read a reply from the
-terminal, so press it in a shell tab, not in an agent tab.
 
 
 works on mac and linux.

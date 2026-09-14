@@ -1,21 +1,11 @@
 #!/bin/bash
 
-# ctrl+space asks the terminal how big it is and resizes the tabs to match.
-#
-# ssh only sends the window size at connect time; after that it relies on
-# SIGWINCH, which can get lost across ssh hops. When that happens tmux keeps
-# filling the size it was told at connect, so tabs look stuck at a fixed width.
-# Asking the terminal directly and applying the answer fixes it.
-#
-# Must run in the foreground: reading the terminal's answer means owning the
-# terminal, and a background job that does that gets stopped with SIGTTOU.
+# ctrl+space: ask the terminal its size and resize the tabs to match, for when
+# SIGWINCH gets lost across ssh hops and tabs stay stuck at the connect-time size.
 if [ "$1" = "--resize" ]; then
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}' 2>/dev/null)
     [ -n "$tty" ] && [ -e "$tty" ] || { echo "tabs: no tmux client" >&2; exit 1; }
 
-    # Ask the terminal for its size and read the answer. The DCS wrapper makes
-    # the query pass through tmux to the real terminal outside it. Echo is off
-    # so the answer is not printed, and read stops at the 't' that ends it.
     exec < /dev/tty
     saved=$(stty -g) || exit 1
     stty raw -echo
@@ -23,7 +13,7 @@ if [ "$1" = "--resize" ]; then
     IFS= read -r -d t -t 3 reply
     stty "$saved"
 
-    # the answer looks like: ESC [ 8 ; rows ; cols t
+    # answer: ESC [ 8 ; rows ; cols t
     case $reply in
         *'[8;'*';'*) ;;
         *) echo "tabs: terminal did not report its size" >&2; exit 1 ;;
@@ -32,8 +22,7 @@ if [ "$1" = "--resize" ]; then
     cols=${reply##*;}
     case $rows$cols in *[!0-9]*|'') echo "tabs: bad size reply" >&2; exit 1 ;; esac
 
-    # Setting the size raises SIGWINCH, which is what makes tmux resize. -F is
-    # GNU stty, -f is BSD/macOS.
+    # this raises SIGWINCH, which is what resizes tmux. -F is GNU, -f is BSD
     stty -F "$tty" columns "$cols" rows "$rows" 2>/dev/null ||
         stty -f "$tty" columns "$cols" rows "$rows" 2>/dev/null || exit 1
     tmux refresh-client -S 2>/dev/null
@@ -42,7 +31,7 @@ fi
 
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 menu="display-menu -T ' new tab ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'"
-# Only in a shell tab: send-keys into an agent tab would type into the agent.
+# shell tabs only: send-keys would type into an agent
 resize="if-shell -F '#{m:*sh,#{pane_current_command}}' \"send-keys '$self --resize' Enter\" \"display-message 'ctrl+space: use a shell tab to resync size'\""
 exec tmux -L tabs -f <(cat <<CONF
 set -g prefix None
