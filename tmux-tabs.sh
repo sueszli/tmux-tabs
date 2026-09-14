@@ -1,11 +1,18 @@
 #!/bin/bash
 
-# ctrl+t -> "fit size": ask the terminal how big it is and resize the tabs to
-# match, for when SIGWINCH gets lost across ssh hops and tabs stay stuck at the
-# size they had at connect time.
+# Switching tabs resyncs the size: ask the terminal how big it is and resize to
+# match. Needed when SIGWINCH is lost across ssh hops, which leaves tabs stuck at
+# whatever size they had at connect time.
 if [ "$1" = "--resize" ]; then
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}' 2>/dev/null)
     [ -n "$tty" ] && [ -e "$tty" ] || { echo "tabs: no tmux client" >&2; exit 1; }
+
+    # Switching tabs quickly can start a second query while the first is still
+    # waiting for its answer; the stray answer would then be echoed into a
+    # shell. Let one run at a time and drop the rest.
+    lock=${TMPDIR:-/tmp}/tabs-resize-$(id -u).lock
+    mkdir "$lock" 2>/dev/null || exit 0
+    trap 'rmdir "$lock" 2>/dev/null' EXIT INT TERM
 
     exec < /dev/tty
     saved=$(stty -g) || exit 1
@@ -31,9 +38,11 @@ if [ "$1" = "--resize" ]; then
 fi
 
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-# shell tabs only: send-keys into an agent tab would type into the agent
-fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys '$self --resize' Enter\\\" \\\"display-message 'fit size: use a shell tab'\\\""
-menu="display-menu -T ' tabs ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell' '' 'fit size' f \"$fit\""
+# Resync on every tab switch. Shell tabs only, because this types a command: in
+# an agent tab it would go to the agent. The leading space keeps it out of
+# history and clear wipes the line, so the tab just looks like a fresh prompt.
+fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
+menu="display-menu -T ' new tab ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'"
 exec tmux -L tabs -f <(cat <<CONF
 set -g prefix None
 set -g base-index 1
@@ -53,5 +62,6 @@ bind -n C-Right next-window
 bind -n C-Left previous-window
 bind -n C-f next-window
 bind -n C-b previous-window
+set-hook -g after-select-window "$fit"
 CONF
 ) new-session -A -s tabs -n shell "$@"
