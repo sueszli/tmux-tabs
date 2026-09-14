@@ -44,3 +44,12 @@ requires a bash and tmux ≥ 3.0. install:
     $ curl -o ~/.local/bin/tabs https://raw.githubusercontent.com/sueszli/tmux-tabs/master/tmux-tabs.sh
     $ chmod +x ~/.local/bin/tabs
     $ tabs
+
+
+make it your tmux:
+
+    $ echo 'alias tmux=tabs' >> ~/.bashrc     # or ~/.zshrc
+
+reattaches if already running. `command tmux` still gets you vanilla tmux.
+alias, not a ~/.local/bin/tmux shim - the script calls tmux itself and a shim
+would recurse forever.
