@@ -1,15 +1,12 @@
 #!/bin/bash
 
-# Switching tabs resyncs the size: ask the terminal how big it is and resize to
-# match. Needed when SIGWINCH is lost across ssh hops, which leaves tabs stuck at
-# whatever size they had at connect time.
+# Switching tabs resyncs the size: ask the terminal how big it is (CSI 18t) and
+# apply the answer, for when SIGWINCH is lost across ssh hops and tabs stay
+# stuck at whatever size they had at connect time.
 if [ "$1" = "--resize" ]; then
-    tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}' 2>/dev/null)
-    [ -n "$tty" ] && [ -e "$tty" ] || { echo "tabs: no tmux client" >&2; exit 1; }
+    tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}') || exit 1
+    [ -e "$tty" ] || exit 1
 
-    # Switching tabs quickly can start a second query while the first is still
-    # waiting for its answer; the stray answer would then be echoed into a
-    # shell. Let one run at a time and drop the rest.
     lock=${TMPDIR:-/tmp}/tabs-resize-$(id -u).lock
     mkdir "$lock" 2>/dev/null || exit 0
     trap 'rmdir "$lock" 2>/dev/null' EXIT INT TERM
@@ -21,26 +18,18 @@ if [ "$1" = "--resize" ]; then
     IFS= read -r -d t -t 3 reply
     stty "$saved"
 
-    # answer: ESC [ 8 ; rows ; cols t
-    case $reply in
-        *'[8;'*';'*) ;;
-        *) echo "tabs: terminal did not report its size" >&2; exit 1 ;;
-    esac
     rows=${reply#*'[8;'}; rows=${rows%%;*}
     cols=${reply##*;}
-    case $rows$cols in *[!0-9]*|'') echo "tabs: bad size reply" >&2; exit 1 ;; esac
+    case $rows$cols in *[!0-9]*|'') exit 1 ;; esac
 
-    # this raises SIGWINCH, which is what resizes tmux. -F is GNU, -f is BSD
     stty -F "$tty" columns "$cols" rows "$rows" 2>/dev/null ||
         stty -f "$tty" columns "$cols" rows "$rows" 2>/dev/null || exit 1
-    tmux refresh-client -S 2>/dev/null
+    tmux refresh-client -S
     exit 0
 fi
 
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-# Resync on every tab switch. Shell tabs only, because this types a command: in
-# an agent tab it would go to the agent. The leading space keeps it out of
-# history and clear wipes the line, so the tab just looks like a fresh prompt.
+# shell tabs only: in an agent tab these keys would go to the agent
 fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
 menu="display-menu -T ' new tab ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'"
 exec tmux -L tabs -f <(cat <<CONF
