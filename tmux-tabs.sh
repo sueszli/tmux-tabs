@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# ssh hops can swallow SIGWINCH, leaving tabs stuck at the connect-time size
-# ask the terminal how big it is (CSI 18t) and apply that on every tab switch
+# recover terminal size after ssh hops
 if [ "$1" = "--resize" ]; then
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}') || exit 1
     [ -e "$tty" ] || exit 1
@@ -40,7 +39,7 @@ if [ "$1" = "--agent" ]; then
 fi
 
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-# shell tabs only: in an agent tab these keys would go to the agent
+# resize shell tabs without sending keys to agents
 fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
 menu="display-menu -T ' agents in #{b:pane_current_path} ' 'Claude (bypass, worktree if Git)' c 'new-window -n claude -c \"#{pane_current_path}\" \"$self --agent claude\"' 'Codex (yolo, worktree if Git)' x 'new-window -n codex -c \"#{pane_current_path}\" \"$self --agent codex\"'"
 config() { cat <<CONF
