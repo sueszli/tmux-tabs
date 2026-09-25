@@ -24,16 +24,31 @@ resize() (
     case $rows$cols in *[!0-9]*|'') exit 1 ;; esac
 
     stty -F "$tty" columns "$cols" rows "$rows" 2>/dev/null || stty -f "$tty" columns "$cols" rows "$rows" 2>/dev/null || exit 1
-    tmux refresh-client -S
+    tmux refresh-client
     exit 0
 )
 
-tmux_config() {
-    local self fit
-    self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+tab_label() {
+    local root=$1 fallback=$2
+    ps -e -o pid=,ppid=,comm= | awk -v root="$root" -v fallback="$fallback" '
+        { parent[$1] = $2; command[$1] = $3 }
+        END {
+            for (pid in parent) {
+                current = pid
+                while (current != root && current in parent) current = parent[current]
+                if (current == root && command[pid] ~ /(^|\/)codex$/) {
+                    print "codex"
+                    exit
+                }
+            }
+            print fallback
+        }
+    '
+}
 
-    # load this file in bash so the pane can call resize
-    fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' env BASH_ENV=$self bash -c resize >/dev/null 2>&1; clear' Enter\\\" ''"
+tmux_config() {
+    local self
+    self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
 
     cat <<CONF
 set -g prefix None
@@ -45,20 +60,41 @@ set -g status-position top
 set -g status-style 'bg=colour236,fg=colour245'
 set -g status-left ''
 set -g status-right '#[fg=colour240] ^T shell  ^W close  ^← ^→ switch '
-set -g window-status-format ' #I #{pane_current_command} '
-set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #{pane_current_command} '
-bind -n C-t new-window
-bind -n C-n new-window
+set -g window-status-format ' #I #($self --label #{pane_pid} #{pane_current_command}) '
+set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #($self --label #{pane_pid} #{pane_current_command}) '
+bind -n C-t new-window -c '#{pane_current_path}'
+bind -n C-n new-window -c '#{pane_current_path}'
 bind -n C-w kill-window
 bind -n C-Right next-window
 bind -n C-Left previous-window
 bind -n C-f next-window
 bind -n C-b previous-window
-set-hook -g after-select-window "$fit"
+set-hook -g after-select-window "run-shell -b '$self --sync #{pane_id}'"
+set-hook -g after-new-window "run-shell -b '$self --sync #{pane_id}'"
 CONF
 }
 
-# start tmux only when run directly because the resize hook loads this file
-if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+reload_config() {
+    local file
+    file=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || return 1
+    trap 'rm -f "$file"' EXIT
+    tmux_config > "$file"
+    tmux -L tabs source-file "$file"
+}
+
+# the resize command loads this file through BASH_ENV inside a shell pane
+if [ "${1:-}" = --label ]; then
+    tab_label "$2" "$3"
+elif [ "${1:-}" = --reload ]; then
+    reload_config
+elif [ "${1:-}" = --sync ]; then
+    reload_config || exit 1
+    pane=$2
+    pane_cmd=$(tmux -L tabs display-message -p -t "$pane" '#{pane_current_command}') || exit 0
+    case $pane_cmd in
+        *sh) tmux -L tabs send-keys -t "$pane" " env BASH_ENV=$0 bash -c resize >/dev/null 2>&1; clear" Enter ;;
+    esac
+    tmux -L tabs refresh-client
+elif [ "${BASH_SOURCE[0]}" = "$0" ]; then
     exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
 fi
