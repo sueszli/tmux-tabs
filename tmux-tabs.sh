@@ -34,16 +34,16 @@ exec tmux -L tabs -f <(cat <<CONF
 set -g prefix None
 set -g base-index 1
 set -g renumber-windows on
-setw -g automatic-rename off
+setw -g automatic-rename on
 set -g allow-passthrough on
 set -g status-position top
 set -g status-style 'bg=colour236,fg=colour245'
 set -g status-left ''
 set -g status-right '#[fg=colour240] ^T shell  ^W close  ^← ^→ switch '
-set -g window-status-format ' #I #W '
-set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #W '
-bind -n C-t new-window -n shell
-bind -n C-n new-window -n shell
+set -g window-status-format ' #I #{pane_current_command} '
+set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #{pane_current_command} '
+bind -n C-t new-window
+bind -n C-n new-window
 bind -n C-w kill-window
 bind -n C-Right next-window
 bind -n C-Left previous-window
@@ -51,4 +51,4 @@ bind -n C-f next-window
 bind -n C-b previous-window
 set-hook -g after-select-window "$fit"
 CONF
-) new-session -A -s tabs -n shell "$@"
+) new-session -A -s tabs "$@"
