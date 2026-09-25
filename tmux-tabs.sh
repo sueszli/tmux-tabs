@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# ssh hops can swallow SIGWINCH, leaving tabs stuck at the connect-time size.
-# Ask the terminal how big it is (CSI 18t) and apply that on every tab switch.
-if [ "$1" = "--resize" ]; then
+resize() (
+    # ssh can lose resize notifications between the terminal and tmux
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}') || exit 1
     [ -e "$tty" ] || exit 1
 
@@ -13,24 +12,30 @@ if [ "$1" = "--resize" ]; then
     exec < /dev/tty
     saved=$(stty -g) || exit 1
     stty raw -echo
+
+    # ask the terminal for its size through tmux
     printf '\ePtmux;\e\e[18t\e\\' > /dev/tty
     IFS= read -r -d t -t 3 reply
     stty "$saved"
 
-    rows=${reply#*'[8;'}; rows=${rows%%;*}
+    rows=${reply#*'[8;'}
+    rows=${rows%%;*}
     cols=${reply##*;}
     case $rows$cols in *[!0-9]*|'') exit 1 ;; esac
 
-    stty -F "$tty" columns "$cols" rows "$rows" 2>/dev/null ||
-        stty -f "$tty" columns "$cols" rows "$rows" 2>/dev/null || exit 1
+    stty -F "$tty" columns "$cols" rows "$rows" 2>/dev/null || stty -f "$tty" columns "$cols" rows "$rows" 2>/dev/null || exit 1
     tmux refresh-client -S
     exit 0
-fi
+)
 
-self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-# shell tabs only: in an agent tab these keys would go to the agent
-fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
-exec tmux -L tabs -f <(cat <<CONF
+tmux_config() {
+    local self fit
+    self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+
+    # load this file in bash so the pane can call resize
+    fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' env BASH_ENV=$self bash -c resize >/dev/null 2>&1; clear' Enter\\\" ''"
+
+    cat <<CONF
 set -g prefix None
 set -g base-index 1
 set -g renumber-windows on
@@ -51,4 +56,9 @@ bind -n C-f next-window
 bind -n C-b previous-window
 set-hook -g after-select-window "$fit"
 CONF
-) new-session -A -s tabs "$@"
+}
+
+# start tmux only when run directly because the resize hook loads this file
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
+fi
