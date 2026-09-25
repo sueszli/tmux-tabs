@@ -34,8 +34,11 @@ resize() (
 
 tab_label() {
     # show the program name behind a node launcher
-    local root=$1 fallback=$2
-    ps -e -o pid=,ppid=,comm= | awk -v root="$root" -v fallback="$fallback" '
+    local root=$1 fallback=$2 pane=$3 agent state marker
+    agent=$(tmux -L tabs show-option -p -v -t "$pane" @tabs_agent 2>/dev/null)
+    state=$(tmux -L tabs show-option -p -v -t "$pane" @tabs_state 2>/dev/null)
+    if [ -z "$agent" ]; then
+        agent=$(ps -e -o pid=,ppid=,comm= | awk -v root="$root" -v fallback="$fallback" '
         { parent[$1] = $2; command[$1] = $3 }
         END {
 
@@ -43,14 +46,21 @@ tab_label() {
             for (pid in parent) {
                 current = pid
                 while (current != root && current in parent) current = parent[current]
-                if (current == root && command[pid] ~ /(^|\/)codex$/) {
-                    print "codex"
+                if (current == root && command[pid] ~ /(^|\/)(codex|claude)$/) {
+                    sub(/^.*\//, "", command[pid])
+                    print command[pid]
                     exit
                 }
             }
             print fallback
         }
-    '
+    ')
+    fi
+    marker='•'
+    if [ "$state" = working ] && [ $(( $(date +%s) % 2 )) -eq 1 ]; then
+        marker=' '
+    fi
+    printf '%s %s\n' "$marker" "$agent"
 }
 
 tmux_config() {
@@ -67,11 +77,13 @@ set -g allow-passthrough on
 
 # tab bar
 set -g status-position top
+set -g status-interval 1
 set -g status-style 'bg=colour236,fg=colour245'
+set -g window-status-current-style 'bg=colour250,fg=colour236,bold'
 set -g status-left ''
-set -g status-right '#[fg=colour240] ^T shell  ^W close  ^← ^→ switch '
-set -g window-status-format ' #I #(BASH_ENV=$self bash -c "tab_label #{pane_pid} #{pane_current_command}") '
-set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #(BASH_ENV=$self bash -c "tab_label #{pane_pid} #{pane_current_command}") '
+set -g status-right ' ^T shell  ^W close  ^← ^→ switch '
+set -g window-status-format ' #(BASH_ENV=$self bash -c "tab_label #{pane_pid} #{pane_current_command} #{pane_id}") '
+set -g window-status-current-format ' #(BASH_ENV=$self bash -c "tab_label #{pane_pid} #{pane_current_command} #{pane_id}") '
 
 # tab keys
 bind -n C-t new-window -c '#{pane_current_path}'
@@ -90,13 +102,15 @@ CONF
 
 render() {
     # reload config, correct shell size and redraw tab labels
-    local pane=$1 pane_cmd file
+    local pane=$1 pane_cmd file helper
 
     # load the latest installed config
     file=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || return 1
     tmux_config > "$file"
     tmux -L tabs source-file "$file" || { rm -f "$file"; return 1; }
     rm -f "$file"
+    helper=${BASH_SOURCE[0]%/*}/tabs-agent-hook
+    [ -x "$helper" ] && "$helper" refresh >/dev/null
 
     # query terminal size only from a shell
     pane_cmd=$(tmux -L tabs display-message -p -t "$pane" '#{pane_current_command}') || return 0

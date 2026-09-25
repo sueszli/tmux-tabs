@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# Called by Claude Code and Codex hooks. Ignore sessions outside the tabs socket.
+if [ "${1:-}" != refresh ]; then
+    case ${TMUX%%,*} in */tabs) ;; *) printf '{}\n'; exit 0 ;; esac
+    [ -n "${TMUX_PANE:-}" ] || { printf '{}\n'; exit 0; }
+
+    agent=${1:-}
+    event=${2:-}
+    case $agent in claude|codex) ;; *) exit 1 ;; esac
+
+    case $event in
+    SessionEnd)
+        tmux -L tabs set-option -p -u -t "$TMUX_PANE" @tabs_agent >/dev/null 2>&1
+        tmux -L tabs set-option -p -u -t "$TMUX_PANE" @tabs_state >/dev/null 2>&1
+        ;;
+    SessionStart)
+        tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
+        tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state idle >/dev/null 2>&1
+        ;;
+    Stop|StopFailure|Interrupt|PermissionRequest|PreQuestion)
+        tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
+        tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state feedback >/dev/null 2>&1
+        ;;
+    UserPromptSubmit|PostToolUse|PostToolUseFailure|PostQuestion)
+        tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
+        tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state working >/dev/null 2>&1
+        ;;
+        *) exit 1 ;;
+    esac
+fi
+
+# Keep the bar neutral. A window with a waiting agent gets its own green tab.
+tmux -L tabs set-option -g status-style 'bg=colour236,fg=colour245' >/dev/null 2>&1
+tmux -L tabs set-option -g status-left-style default >/dev/null 2>&1
+tmux -L tabs set-option -g status-right-style default >/dev/null 2>&1
+tmux -L tabs set-option -gw window-status-style default >/dev/null 2>&1
+tmux -L tabs set-option -gw window-status-current-style 'bg=colour250,fg=colour236,bold' >/dev/null 2>&1
+tmux -L tabs set-option -gw window-status-last-style default >/dev/null 2>&1
+tmux -L tabs set-option -gw window-status-activity-style reverse >/dev/null 2>&1
+tmux -L tabs set-option -gw window-status-bell-style reverse >/dev/null 2>&1
+
+while IFS= read -r window; do
+    attention=0
+    while IFS= read -r state; do
+        if [ "$state" = feedback ]; then
+            attention=1
+            break
+        fi
+    done < <(tmux -L tabs list-panes -t "$window" -F '#{@tabs_state}' 2>/dev/null)
+
+    if [ "$attention" = 1 ]; then
+        for style in window-status-style window-status-last-style window-status-activity-style window-status-bell-style; do
+            tmux -L tabs set-option -w -t "$window" "$style" 'bg=colour34,fg=colour232' >/dev/null 2>&1
+        done
+        tmux -L tabs set-option -w -t "$window" window-status-current-style 'bg=colour34,fg=colour232,bold' >/dev/null 2>&1
+    else
+        for style in window-status-style window-status-current-style window-status-last-style window-status-activity-style window-status-bell-style; do
+            tmux -L tabs set-option -wu -t "$window" "$style" >/dev/null 2>&1
+        done
+    fi
+done < <(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
+tmux -L tabs refresh-client >/dev/null 2>&1 || true
+# Codex Stop requires JSON; Claude Code accepts the same empty response.
+printf '{}\n'
