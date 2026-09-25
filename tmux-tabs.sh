@@ -1,7 +1,6 @@
 #!/bin/bash
 
 resize() (
-
     # resync terminal size after ssh misses a resize
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}') || exit 1
     [ -e "$tty" ] || exit 1
@@ -34,7 +33,6 @@ resize() (
 )
 
 tab_label() {
-
     # show the program name behind a node launcher
     local root=$1 fallback=$2
     ps -e -o pid=,ppid=,comm= | awk -v root="$root" -v fallback="$fallback" '
@@ -56,7 +54,6 @@ tab_label() {
 }
 
 tmux_config() {
-
     # print the config for the tabs server
     local self
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
@@ -92,7 +89,6 @@ CONF
 }
 
 render() {
-
     # reload config, correct shell size and redraw tab labels
     local pane=$1 pane_cmd file
 
