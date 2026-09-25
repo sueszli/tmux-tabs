@@ -47,15 +47,14 @@ a failed download leaves the installed copy intact.
 keys (press `ctrl+b`, then the letter or arrow):
 
     t          new shell in the current tab's directory
-    a          choose claude or codex
+    a          choose claude, codex, pi or opencode
     g          show the full current directory
     w          close tab
     ← / →      previous / next tab
 
-claude starts with permission checks bypassed; codex starts in yolo mode. inside a git repo,
-both create a worktree. outside a git repo, they start in the current directory. tab names
-show the agent and directory. if your terminal passes `ctrl+t` or `ctrl+n` to tmux, they
-also open the agent menu. if `ctrl+t` opens a terminal tab, use `ctrl+b`, then `a`.
+new tabs use the current directory. claude and codex create worktrees in git repos.
+claude bypasses permissions; codex uses yolo mode. tab names show the agent and directory.
+`ctrl+t` and `ctrl+n` also open the agent menu when the terminal passes them to tmux.
 run `tabs --reload` after updating to apply keys to an active session.
 
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.

@@ -30,7 +30,7 @@ if [ "$1" = "--agent" ]; then
     case $2 in
         claude) set -- claude --dangerously-skip-permissions ;;
         codex) set -- codex --dangerously-bypass-approvals-and-sandbox -C "$PWD" ;;
-        *) echo "Unknown agent: $2" >&2; exit 2 ;;
+        *) echo "unknown agent: $2" >&2; exit 2 ;;
     esac
     if git rev-parse --show-toplevel >/dev/null 2>&1; then
         set -- "$@" --worktree
@@ -38,11 +38,15 @@ if [ "$1" = "--agent" ]; then
     exec "$@"
 fi
 
-self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-# resize shell tabs without sending keys to agents
-fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
-menu="display-menu -T ' agents in #{b:pane_current_path} ' 'Claude (bypass, worktree if Git)' c 'new-window -n claude -c \"#{pane_current_path}\" \"$self --agent claude\"' 'Codex (yolo, worktree if Git)' x 'new-window -n codex -c \"#{pane_current_path}\" \"$self --agent codex\"'"
-config() { cat <<CONF
+config() {
+    local self menu_self fit menu
+    self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+    printf -v self '%q' "$self"
+    printf -v menu_self '%q' "$self"
+    # resize shells only
+    fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
+    menu="display-menu -T ' agents in #{b:pane_current_path} ' claude c 'new-window -n claude -c \"#{pane_current_path}\" \"$menu_self --agent claude\"' codex x 'new-window -n codex -c \"#{pane_current_path}\" \"$menu_self --agent codex\"' pi p 'new-window -n pi -c \"#{pane_current_path}\" pi' opencode o 'new-window -n opencode -c \"#{pane_current_path}\" opencode'"
+    cat <<CONF
 set -g prefix C-b
 set -g base-index 1
 set -g renumber-windows on
@@ -52,7 +56,6 @@ set -g allow-passthrough on
 set -g status-position top
 set -g status-style 'bg=colour236,fg=colour245'
 set -g status-left ''
-set -g status-right-length 32
 set -g status-right '#[fg=colour240] ^B t shell  ^B a agents  ^B g cwd '
 set -g window-status-format ' #I #W:#{b:pane_current_path} '
 set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #W:#{b:pane_current_path} '
@@ -73,19 +76,11 @@ set-hook -g after-select-window "$fit"
 CONF
 }
 
-reload() (
-    local file
+if [ "$1" = "--reload" ]; then
     file=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || exit 1
     trap 'rm -f "$file"' EXIT
     config > "$file"
     tmux -L tabs source-file "$file"
-)
-
-if [ "$1" = "--reload" ]; then
-    reload
     exit
-fi
-if tmux -L tabs has-session 2>/dev/null; then
-    reload
 fi
 exec tmux -L tabs -f <(config) new-session -A -s tabs -n shell "$@"
