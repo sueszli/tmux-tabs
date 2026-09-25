@@ -10,7 +10,7 @@ works on mac and linux with bash, curl and tmux 3.0 or newer.
 
 
 ┌──────────────────────────────────────────────────────────────────┐
-│ 1 shell   2 codex   3 pi  [4 claude]     ^T new  ^W close  ^← ^→ │
+│ 1 zsh   2 codex   3 pi  [4 claude]     ^T shell  ^W close  ^← ^→ │
 ├──────────────────────────────────────────────────────────────────┤
 │ ╭─ Claude Code ────────────────────────────────────────────────╮ │
 │ │                                                              │ │
