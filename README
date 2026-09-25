@@ -30,7 +30,7 @@ run many coding agents at once and keep them alive across ssh disconnects.
 │   ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents   │
 └──────────────────────────────────────────────────────────────────┘
 
-works on mac and linux with bash, curl, and tmux 3.0 or newer.
+works on mac and linux with bash, curl and tmux 3.0 or newer.
 
 install to `~/.local/bin/tabs`:
 
@@ -40,7 +40,9 @@ make sure `~/.local/bin` is on your path, then run `tabs`. update with:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/update.sh | bash
 
-from a clone, use `./install.sh` or `./update.sh`. a failed download leaves the installed copy intact.
+from a clone, use `./install.sh` or `./update.sh`.
+
+a failed download leaves the installed copy intact.
 
 keys:
 
