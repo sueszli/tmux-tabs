@@ -30,7 +30,6 @@ fi
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 # shell tabs only: in an agent tab these keys would go to the agent
 fit="if-shell -F '#{m:*sh,#{pane_current_command}}' \\\"send-keys ' $self --resize >/dev/null 2>&1; clear' Enter\\\" ''"
-menu="display-menu -T ' new tab ' claude c 'new-window -n claude claude --permission-mode auto' codex x 'new-window -n codex codex' pi p 'new-window -n pi pi' opencode o 'new-window -n opencode opencode' '' shell s 'new-window -n shell'"
 exec tmux -L tabs -f <(cat <<CONF
 set -g prefix None
 set -g base-index 1
@@ -40,11 +39,11 @@ set -g allow-passthrough on
 set -g status-position top
 set -g status-style 'bg=colour236,fg=colour245'
 set -g status-left ''
-set -g status-right '#[fg=colour240] ^T new  ^W close  ^← ^→ switch '
+set -g status-right '#[fg=colour240] ^T shell  ^W close  ^← ^→ switch '
 set -g window-status-format ' #I #W '
 set -g window-status-current-format '#[bg=colour250,fg=colour236,bold] #I #W '
-bind -n C-t $menu
-bind -n C-n $menu
+bind -n C-t new-window -n shell
+bind -n C-n new-window -n shell
 bind -n C-w kill-window
 bind -n C-Right next-window
 bind -n C-Left previous-window
