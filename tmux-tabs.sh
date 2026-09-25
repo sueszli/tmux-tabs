@@ -87,13 +87,13 @@ tabs_install_hooks() (
     config=$HOME/.codex/config.toml
     json=$HOME/.codex/hooks.json
     if [ -f "$config" ] && grep -Eq '^[[:space:]]*\[\[?hooks([.]|\])' "$config"; then
-        marker='# BEGIN tabs-agent-status'
-        if ! grep -Fq 'tabs_agent_hook codex SessionStart' "$config"; then
+        marker='# begin tabs-agent-status'
+        if ! grep -Fq 'tabs_agent_hook codex SessionStart' "$config" || grep -Eq '^# [[:upper:]]+ tabs-agent-status$' "$config"; then
             [ -e "${config}.before-tabs" ] || cp -p "$config" "${config}.before-tabs"
             staged=$(mktemp "${config}.XXXXXX")
             cp -p "$config" "$staged"
-            if grep -Fq "$marker" "$config"; then
-                sed '/^# BEGIN tabs-agent-status$/,/^# END tabs-agent-status$/d' "$config" > "$staged"
+            if grep -Eqi '^# begin tabs-agent-status$' "$config"; then
+                sed '/^# [Bb][Ee][Gg][Ii][Nn] tabs-agent-status$/,/^# [Ee][Nn][Dd] tabs-agent-status$/d' "$config" > "$staged"
             fi
             {
                 printf '\n%s\n' "$marker"
@@ -104,12 +104,12 @@ tabs_install_hooks() (
                     [ "$event" != SessionStart ] || printf 'matcher = "startup|resume"\n'
                     printf 'hooks = [{ type = "command", command = %s, timeout = 3 }]\n\n' "$json_command"
                 done
-                printf '# END tabs-agent-status\n'
+                printf '# end tabs-agent-status\n'
             } >> "$staged"
             mv "$staged" "$config"
             printf 'configured codex status hooks in %s\n' "$config"
         fi
-        # Migrate any old tabs hooks stored beside inline Codex hooks.
+        # migrate old tabs hooks stored beside inline codex hooks
         if [ -f "$json" ] && jq -e --arg old "$old" '
             any(.hooks[][]?.hooks[]?;
                 (.command // "") as $command
@@ -139,7 +139,7 @@ tabs_install_hooks() (
 
 tabs_agent_hook() {
     local agent event attention state style window
-    # Called by Claude Code and Codex hooks. Ignore sessions outside the tabs socket.
+    # handle claude code and codex hooks only for the tabs socket
     if [ "${1:-}" != refresh ]; then
         case ${TMUX%%,*} in */tabs) ;; *) printf '{}\n'; return 0 ;; esac
         [ -n "${TMUX_PANE:-}" ] || { printf '{}\n'; return 0; }
@@ -169,7 +169,7 @@ tabs_agent_hook() {
         esac
     fi
 
-    # Keep the bar neutral. A window with a waiting agent gets its own green tab.
+    # keep the bar neutral and color only tabs waiting for input
     tmux -L tabs set-option -g status-style 'bg=colour236,fg=colour245' >/dev/null 2>&1
     tmux -L tabs set-option -g status-left-style default >/dev/null 2>&1
     tmux -L tabs set-option -g status-right-style default >/dev/null 2>&1
@@ -200,7 +200,7 @@ tabs_agent_hook() {
         fi
     done < <(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
     tmux -L tabs refresh-client >/dev/null 2>&1 || true
-    # Codex Stop requires JSON; Claude Code accepts the same empty response.
+    # codex stop requires json and claude code accepts the same empty response
     printf '{}\n'
 }
 
@@ -325,7 +325,7 @@ render() {
     tmux -L tabs refresh-client
 }
 
-# tmux callbacks source these functions through BASH_ENV
+# tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
 fi
