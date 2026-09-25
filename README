@@ -6,6 +6,8 @@
 
 tmux reduced to browser-style tabs.
 run many coding agents at once and keep them alive across ssh disconnects.
+works on mac and linux with bash, curl and tmux 3.0 or newer.
+
 
 ┌──────────────────────────────────────────────────────────────────┐
 │ 1 shell   2 codex   3 pi  [4 claude]     ^T new  ^W close  ^← ^→ │
@@ -30,19 +32,6 @@ run many coding agents at once and keep them alive across ssh disconnects.
 │   ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents   │
 └──────────────────────────────────────────────────────────────────┘
 
-works on mac and linux with bash, curl and tmux 3.0 or newer.
-
-install to `~/.local/bin/tabs`:
-
-    curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
-
-make sure `~/.local/bin` is on your path, then run `tabs`. update with:
-
-    curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/update.sh | bash
-
-from a clone, use `./install.sh` or `./update.sh`.
-
-a failed download leaves the installed copy intact.
 
 keys:
 
@@ -50,5 +39,17 @@ keys:
     ctrl+w                  close tab
     ctrl+→/← (or ctrl+f/b)  next / previous tab
 
+
+install to `~/.local/bin/tabs`:
+
+    curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
+
+
+update with:
+
+    curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/update.sh | bash
+
+
+make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
