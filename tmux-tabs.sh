@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 tabs_install_json_hooks() {
+    # merge agent hooks into json settings while preserving existing hooks
     local path=$1 agent=$2 events=$3 prefix=$4 old=$5 staged original
     mkdir -p "${path%/*}"
     staged=$(mktemp "${path}.XXXXXX") || return 1
@@ -50,9 +51,10 @@ tabs_install_json_hooks() {
 }
 
 tabs_install_hooks() (
+    # configure user hooks for claude code and codex cli
     set -euo pipefail
     command -v jq >/dev/null || { echo 'agent status setup needs jq' >&2; exit 1; }
-    local self quoted old prefix claude_events codex_events config json marker event command json_command staged
+    local self quoted old prefix claude_events codex_events config json event staged
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
     printf -v quoted '%q' "$self"
     old=${self}-agent-hook
@@ -87,7 +89,6 @@ tabs_install_hooks() (
     config=$HOME/.codex/config.toml
     json=$HOME/.codex/hooks.json
     if [ -f "$config" ] && grep -Eq '^[[:space:]]*\[\[?hooks([.]|\])' "$config"; then
-        marker='# begin tabs-agent-status'
         if ! grep -Fq 'tabs_agent_hook codex SessionStart' "$config" || grep -Eq '^# [[:upper:]]+ tabs-agent-status$' "$config"; then
             [ -e "${config}.before-tabs" ] || cp -p "$config" "${config}.before-tabs"
             staged=$(mktemp "${config}.XXXXXX")
@@ -96,13 +97,11 @@ tabs_install_hooks() (
                 sed '/^# [Bb][Ee][Gg][Ii][Nn] tabs-agent-status$/,/^# [Ee][Nn][Dd] tabs-agent-status$/d' "$config" > "$staged"
             fi
             {
-                printf '\n%s\n' "$marker"
+                printf '\n# begin tabs-agent-status\n'
                 for event in SessionStart UserPromptSubmit PermissionRequest PostToolUse Stop Interrupt SessionEnd; do
-                    command="$prefix codex $event'"
-                    json_command=$(jq -n --arg command "$command" '$command')
                     printf '[[hooks.%s]]\n' "$event"
                     [ "$event" != SessionStart ] || printf 'matcher = "startup|resume"\n'
-                    printf 'hooks = [{ type = "command", command = %s, timeout = 3 }]\n\n' "$json_command"
+                    printf 'hooks = [{ type = "command", command = %s, timeout = 3 }]\n\n' "$(jq -n --arg command "$prefix codex $event'" '$command')"
                 done
                 printf '# end tabs-agent-status\n'
             } >> "$staged"
@@ -138,8 +137,8 @@ tabs_install_hooks() (
 )
 
 tabs_agent_hook() {
+    # update pane state and color tabs waiting for input
     local agent event attention state style window
-    # handle claude code and codex hooks only for the tabs socket
     if [ "${1:-}" != refresh ]; then
         case ${TMUX%%,*} in */tabs) ;; *) printf '{}\n'; return 0 ;; esac
         [ -n "${TMUX_PANE:-}" ] || { printf '{}\n'; return 0; }
