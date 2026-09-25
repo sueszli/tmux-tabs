@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 resize() (
     # resync terminal size after ssh misses a resize
