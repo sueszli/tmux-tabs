@@ -51,6 +51,5 @@ update with:
 
 
 make sure `~/.local/bin` is on your path, then run `tabs`.
-attached sessions reload their keys and top bar when you switch or open a tab.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.

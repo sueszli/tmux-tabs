@@ -69,32 +69,34 @@ bind -n C-Right next-window
 bind -n C-Left previous-window
 bind -n C-f next-window
 bind -n C-b previous-window
-set-hook -g after-select-window "run-shell -b '$self --sync #{pane_id}'"
-set-hook -g after-new-window "run-shell -b '$self --sync #{pane_id}'"
+set-hook -g after-select-window "run-shell -b '$self --render #{pane_id}'"
+set-hook -g after-new-window "run-shell -b '$self --render #{pane_id}'"
 CONF
 }
 
-reload_config() {
-    local file
+render() {
+    local pane=$1 pane_cmd file
+
+    # the installed script may have changed since this tmux server started
     file=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || return 1
-    trap 'rm -f "$file"' EXIT
     tmux_config > "$file"
-    tmux -L tabs source-file "$file"
+    tmux -L tabs source-file "$file" || { rm -f "$file"; return 1; }
+    rm -f "$file"
+
+    pane_cmd=$(tmux -L tabs display-message -p -t "$pane" '#{pane_current_command}') || return 0
+    case $pane_cmd in
+        *sh) tmux -L tabs send-keys -t "$pane" " env BASH_ENV=$0 bash -c resize >/dev/null 2>&1; clear" Enter ;;
+    esac
+
+    # redrawing the bar runs tab_label for each tab
+    tmux -L tabs refresh-client
 }
 
 # the resize command loads this file through BASH_ENV inside a shell pane
 if [ "${1:-}" = --label ]; then
     tab_label "$2" "$3"
-elif [ "${1:-}" = --reload ]; then
-    reload_config
-elif [ "${1:-}" = --sync ]; then
-    reload_config || exit 1
-    pane=$2
-    pane_cmd=$(tmux -L tabs display-message -p -t "$pane" '#{pane_current_command}') || exit 0
-    case $pane_cmd in
-        *sh) tmux -L tabs send-keys -t "$pane" " env BASH_ENV=$0 bash -c resize >/dev/null 2>&1; clear" Enter ;;
-    esac
-    tmux -L tabs refresh-client
+elif [ "${1:-}" = --render ]; then
+    render "$2"
 elif [ "${BASH_SOURCE[0]}" = "$0" ]; then
     exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
 fi
