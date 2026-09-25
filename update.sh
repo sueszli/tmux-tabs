@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
+PS4='+${LINENO}: '
+set -euox pipefail
 
-target=${HOME:?}/.local/bin/tabs
-if [ ! -f "$target" ]; then
-    echo "tabs is not installed at $target. Run install.sh first." >&2
-    exit 1
-fi
+update_tabs() {
+    local target="${HOME:?}/.local/bin/tabs"
+    [ -f "$target" ] || { echo "Install tabs first: $target" >&2; return 1; }
+    curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
+}
 
-curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
+update_tabs

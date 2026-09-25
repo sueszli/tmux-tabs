@@ -1,59 +1,23 @@
- |                          |         |
- __| __ `__ \  |   |\ \  /  __|  _` | __ \   __|
- |   |   |   | |   | `  <   |   (   | |   |\__ \
-\__|_|  _|  _|\__,_| _/\_\ \__|\__,_|_.__/ ____/
+# tmux-tabs
 
+Browser-style tabs for tmux. Keep shells and coding agents running across SSH disconnects.
+Works on macOS and Linux with bash, curl, and tmux 3.0 or newer.
 
-tmux reduced to browser-style tabs.
-run many coding agents at once and keep them alive across ssh disconnects.
-
-┌──────────────────────────────────────────────────────────────────┐
-│ 1 shell   2 codex   3 pi  [4 claude]     ^T new  ^W close  ^← ^→ │
-├──────────────────────────────────────────────────────────────────┤
-│ ╭─ Claude Code ────────────────────────────────────────────────╮ │
-│ │                                                              │ │
-│ │                     Welcome back Yahya!                      │ │
-│ │                                                              │ │
-│ │                           ▐▛███▜▌                            │ │
-│ │                          ▝▜█████▛▘                           │ │
-│ │                            ▘▘ ▝▝                             │ │
-│ │                                                              │ │
-│ │               Opus 5 (1M context) with xhig…                 │ │
-│ │                         Claude Max                           │ │
-│ │                            ~/dev                             │ │
-│ │                                                              │ │
-│ ╰──────────────────────────────────────────────────────────────╯ │
-│                                                                  │
-│ ──────────────────────────────────────────────────────────────── │
-│ ❯ Try "how does tmux work?"                                      │
-│ ──────────────────────────────────────────────────────────────── │
-│   ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents   │
-└──────────────────────────────────────────────────────────────────┘
-
-
-works on mac and linux. requires bash, curl, and tmux 3.0 or newer.
-
-install to ~/.local/bin/tabs:
+Install to `~/.local/bin/tabs`:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
 
-make sure ~/.local/bin is on your PATH, then run `tabs`.
-
-update later:
+Make sure `~/.local/bin` is on your PATH, then run `tabs`. Update with:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/update.sh | bash
 
-from a clone, run `./install.sh` or `./update.sh` instead.
-the updater leaves your current install in place if the download fails.
+From a clone, use `./install.sh` or `./update.sh`. A failed download leaves the installed copy intact.
 
-keys:
+Keys:
 
-    ctrl+t (also: ctrl+n)        new tab (claude / codex / pi / opencode / shell)
-    ctrl+w                       close tab
-    ctrl+→/← (also: ctrl+f/b)    next / previous tab
+    ctrl+t (or ctrl+n)      new tab (claude / codex / pi / opencode / shell)
+    ctrl+w                  close tab
+    ctrl+→/← (or ctrl+f/b)  next / previous tab
 
-optional: alias `tmux` to `tabs` in your shell config:
-
-    alias tmux=tabs
-
+To use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
