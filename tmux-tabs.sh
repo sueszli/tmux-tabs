@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# ssh hops can swallow SIGWINCH, leaving tabs stuck at the connect-time size.
-# Ask the terminal how big it is (CSI 18t) and apply that on every tab switch.
+# ssh hops can swallow SIGWINCH, leaving tabs stuck at the connect-time size
+# ask the terminal how big it is (CSI 18t) and apply that on every tab switch
 if [ "$1" = "--resize" ]; then
     tty=$(tmux display -p -t "${TMUX_PANE:-}" '#{client_tty}') || exit 1
     [ -e "$tty" ] || exit 1
