@@ -324,7 +324,210 @@ render() {
     tmux -L tabs refresh-client
 }
 
+tabs_hosts() {
+    # list the candidate hosts for a new session, one per line
+    local config=${TABS_HOSTS_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/tabs/hosts}
+    {
+        if [ -n "${TABS_HOSTS:-}" ]; then
+            printf '%s\n' "$TABS_HOSTS"
+        elif [ -r "$config" ]; then
+            cat "$config"
+        fi
+    } | awk '{ sub(/#.*/, ""); gsub(/,/, " "); for (i = 1; i <= NF; i++) print $i }'
+}
+
+tabs_is_self() {
+    # succeed when a host name refers to this machine
+    local host=$1 self
+    self=$(hostname) || return 1
+    [ "$host" = "$self" ] || [ "${host%%.*}" = "${self%%.*}" ]
+}
+
+tabs_loadavg_command() {
+    # print a shell snippet reporting the one minute load average
+    printf '%s' \
+        'if [ -r /proc/loadavg ]; then read -r l _ < /proc/loadavg;' \
+        ' else l=$(uptime | sed "s/.*load averages*:[[:space:]]*//; s/,.*//; s/[[:space:]].*//"); fi;' \
+        ' printf "%s\n" "$l"'
+}
+
+tabs_probe() {
+    # print "<load average> <host>" when a host answers in time
+    local host=$1 command load
+    command=$(tabs_loadavg_command)
+    if tabs_is_self "$host"; then
+        load=$(sh -c "$command" 2>/dev/null)
+    else
+        load=$(ssh -o BatchMode=yes -o ConnectTimeout="${TABS_TIMEOUT:-5}" \
+            -o StrictHostKeyChecking=accept-new "$host" "$command" 2>/dev/null)
+    fi
+    # an unreachable host reports nothing and drops out of the ranking
+    case $load in '' | *[!0-9.]*) return 0 ;; esac
+    printf '%s %s\n' "$load" "$host"
+}
+
+tabs_pick_host() {
+    # print the reachable candidate host carrying the lowest load average
+    local hosts dir host index=0
+    hosts=$(tabs_hosts)
+    [ -n "$hosts" ] || return 0
+    dir=$(mktemp -d "${TMPDIR:-/tmp}/tabs-probe.XXXXXX") || return 1
+    # probe every candidate at once so one slow host cannot hold up the rest
+    while IFS= read -r host; do
+        index=$((index + 1))
+        tabs_probe "$host" > "$dir/$index" &
+    done <<< "$hosts"
+    wait
+    cat "$dir"/* 2>/dev/null | sort -g | awk 'NR == 1 { print $2 }'
+    rm -rf "$dir"
+}
+
+tabs_host_file() {
+    # print the path recording which host holds the session
+    printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/tabs/host"
+}
+
+tabs_remember() {
+    # record the host holding the session so later calls reconnect to it
+    local host=$1 file staged
+    file=$(tabs_host_file)
+    mkdir -p "${file%/*}" || return 1
+    staged=$(mktemp "${file}.XXXXXX") || return 1
+    printf '%s\n' "$host" > "$staged" && mv -f "$staged" "$file" && return 0
+    rm -f "$staged"
+    return 1
+}
+
+tabs_recall() {
+    # print the host that last held a session
+    local file host
+    file=$(tabs_host_file)
+    [ -r "$file" ] || return 1
+    IFS= read -r host < "$file" || return 1
+    case $host in '' | *[!a-zA-Z0-9._-]*) return 1 ;; esac
+    printf '%s\n' "$host"
+}
+
+tabs_session_on() {
+    # succeed when a host already runs a tabs session
+    local host=$1
+    if tabs_is_self "$host"; then
+        tmux -L tabs has-session -t '=tabs' 2>/dev/null
+    else
+        ssh -o BatchMode=yes -o ConnectTimeout="${TABS_TIMEOUT:-5}" "$host" \
+            'bash -l -c "tmux -L tabs has-session -t =tabs"' >/dev/null 2>&1
+    fi
+}
+
+tabs_scan() {
+    # print a candidate host already running a session, if any
+    local hosts dir host index=0
+    hosts=$(tabs_hosts)
+    [ -n "$hosts" ] || return 0
+    dir=$(mktemp -d "${TMPDIR:-/tmp}/tabs-scan.XXXXXX") || return 1
+    while IFS= read -r host; do
+        index=$((index + 1))
+        { tabs_session_on "$host" && printf '%s\n' "$host"; } > "$dir/$index" 2>/dev/null &
+    done <<< "$hosts"
+    wait
+    cat "$dir"/* 2>/dev/null | awk 'NF { print; exit }'
+    rm -rf "$dir"
+}
+
+tabs_connect() {
+    # hand this terminal to the tabs session on another host
+    local host=$1 self command status
+    self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
+    # ssh joins arguments into shell text, so quote the remote call as one word
+    printf -v command '%q --local' "$self"
+    printf -v command 'bash -l -c %q' "$command"
+    printf 'tabs: connecting to %s\n' "$host" >&2
+    ssh -t "$host" "$command"
+    status=$?
+    [ "$status" = 0 ] || printf 'tabs: %s exited with status %s; run tabs --local to stay here.\n' \
+        "$host" "$status" >&2
+    return "$status"
+}
+
+tabs_attach() {
+    # attach on this machine, creating the session when it is missing
+    local config
+    local -a scope=()
+    tabs_remember "$(hostname)"
+    if ! tmux -L tabs has-session -t '=tabs' 2>/dev/null; then
+        # logind reaps leftover user processes when KillUserProcesses is on,
+        # so the server needs its own scope to outlive the login that made it
+        if command -v systemd-run >/dev/null 2>&1 &&
+            systemd-run --scope --user --quiet true >/dev/null 2>&1; then
+            scope=(systemd-run --scope --user --quiet)
+        fi
+        # a scope cannot inherit the /dev/fd path of a process substitution
+        config=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || return 1
+        tmux_config > "$config"
+        "${scope[@]}" tmux -L tabs -f "$config" new-session -d -s tabs
+        rm -f "$config"
+    fi
+    exec tmux -L tabs attach-session -t '=tabs'
+}
+
+tabs_main() {
+    # attach to the session, choosing the least loaded host on first use
+    local host
+
+    case ${1-} in
+        --local) tabs_attach ;;
+        --pick) tabs_pick_host; return 0 ;;
+        --help)
+            printf '%s\n' \
+                'usage: tabs [--local | --pick | --help]' \
+                '' \
+                'with no candidate hosts configured tabs runs on this machine.' \
+                'list hosts in ~/.config/tabs/hosts or $TABS_HOSTS and the first' \
+                'session starts on the reachable host with the lowest load average,' \
+                'then reconnects there over ssh from anywhere.' \
+                '' \
+                '  --local  attach on this machine and remember it' \
+                '  --pick   print the host that would be chosen' \
+                '  --help   show this message'
+            return 0 ;;
+    esac
+
+    # never nest a session inside itself
+    case ${TMUX%%,*} in
+        */tabs)
+            printf 'tabs: already in the tabs session.\n' >&2
+            printf 'press ctrl+t for a new tab and ctrl+left / ctrl+right to switch.\n' >&2
+            return 0 ;;
+    esac
+
+    # a live session on this machine always wins over a remote one
+    tmux -L tabs has-session -t '=tabs' 2>/dev/null && tabs_attach
+
+    # reconnect to the remembered host for as long as its session lives
+    if host=$(tabs_recall) && ! tabs_is_self "$host" && tabs_session_on "$host"; then
+        tabs_connect "$host"
+        return
+    fi
+
+    # the note can go stale, so never start a second session behind a live one
+    host=$(tabs_scan)
+    if [ -n "$host" ] && ! tabs_is_self "$host"; then
+        tabs_remember "$host"
+        tabs_connect "$host"
+        return
+    fi
+
+    # first use: settle on the least loaded host that answers
+    host=$(tabs_pick_host)
+    if [ -n "$host" ] && ! tabs_is_self "$host"; then
+        tabs_remember "$host"
+        tabs_connect "$host"
+        return
+    fi
+    tabs_attach
+}
+
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-    exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
+    tabs_main "$@"
 fi
