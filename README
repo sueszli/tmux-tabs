@@ -53,28 +53,3 @@ update with:
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
-
-
-many machines, one session:
-
-a tmux server lives on the machine that started it, so on a cluster of login
-nodes you reach a different one every time you log in. list the machines you
-share a home directory with and `tabs` keeps a single session for you:
-
-    # ~/.config/tabs/hosts
-    login01.example.edu
-    login02.example.edu
-    login03.example.edu
-
-the first `tabs` starts the session on whichever listed host answers with the
-lowest load average, so a hammered node is skipped. every later `tabs` finds
-that session again and reconnects to it over ssh, from any of the machines.
-the list can also come from `$TABS_HOSTS`, and with no list configured `tabs`
-just runs where you are.
-
-    tabs --pick     print the host that would be chosen
-    tabs --local    stay on this machine and remember it
-
-this needs ssh between the hosts to work without a password.
-where logind sets `KillUserProcesses=yes`, the server is started in its own
-systemd scope so it outlives the login that created it.
