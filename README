@@ -40,17 +40,6 @@ keys:
     ctrl+→/← (or ctrl+f/b)  next / previous tab
 
 
-agent status:
-
-    tabs turns an agent's tab green when it needs input or finishes a turn.
-    the installer adds a `codex` shim alongside `tabs`. inside tabs, it runs
-    Codex with `--no-daemon` so hooks inherit the correct TMUX_PANE. outside
-    tabs, it runs Codex unchanged. this also works with `codex resume`.
-    the tabs install directory must precede the real Codex in PATH. the
-    installer never overwrites an existing command at ~/.local/bin/codex.
-    without the shim, use `codex --no-daemon` inside tabs manually.
-
-
 install to `~/.local/bin/tabs`:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
