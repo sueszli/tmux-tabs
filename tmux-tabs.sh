@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+
+#
+# hook installation
+#
+
+
 tabs_install_json_hooks() {
     # merge agent hooks into json settings while preserving existing hooks
     local path=$1 agent=$2 events=$3 prefix=$4 old=$5 staged original
@@ -47,13 +53,13 @@ tabs_install_json_hooks() {
         cp -p "$path" "${path}.before-tabs"
     fi
     mv "$staged" "$path"
-    printf 'configured %s status hooks in %s\n' "$agent" "$path"
+    printf 'hooks: %s %s\n' "$agent" "$path"
 }
 
 tabs_install_hooks() (
     # configure user hooks for claude code and codex cli
     set -euo pipefail
-    command -v jq >/dev/null || { echo 'agent status setup needs jq' >&2; exit 1; }
+    command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
     local self quoted old prefix claude_events codex_events config json event staged
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
     printf -v quoted '%q' "$self"
@@ -88,7 +94,7 @@ tabs_install_hooks() (
 
     config=$HOME/.codex/config.toml
     json=$HOME/.codex/hooks.json
-    if [ -f "$config" ] && grep -Eq '^[[:space:]]*\[\[?hooks([.]|\])' "$config"; then
+    if [ -f "$config" ] && grep -Eq '^[[:space:]]*\[\[?hooks([.][A-Z]|\])' "$config"; then
         if ! grep -Fq 'tabs_agent_hook codex SessionStart' "$config" || grep -Eq '^# [[:upper:]]+ tabs-agent-status$' "$config"; then
             [ -e "${config}.before-tabs" ] || cp -p "$config" "${config}.before-tabs"
             staged=$(mktemp "${config}.XXXXXX")
@@ -106,7 +112,7 @@ tabs_install_hooks() (
                 printf '# end tabs-agent-status\n'
             } >> "$staged"
             mv "$staged" "$config"
-            printf 'configured codex status hooks in %s\n' "$config"
+            printf 'hooks: codex %s\n' "$config"
         fi
         # migrate old tabs hooks stored beside inline codex hooks
         if [ -f "$json" ] && jq -e --arg old "$old" '
@@ -136,9 +142,15 @@ tabs_install_hooks() (
     fi
 )
 
+
+#
+# agent status
+#
+
+
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
-    local agent event attention state style window
+    local agent event attention state style window windows
     if [ "${1:-}" != refresh ]; then
         case ${TMUX%%,*} in */tabs) ;; *) printf '{}\n'; return 0 ;; esac
         [ -n "${TMUX_PANE:-}" ] || { printf '{}\n'; return 0; }
@@ -168,17 +180,25 @@ tabs_agent_hook() {
         esac
     fi
 
-    # keep the bar neutral and color only tabs waiting for input
-    tmux -L tabs set-option -g status-style 'bg=colour236,fg=colour245' >/dev/null 2>&1
-    tmux -L tabs set-option -g status-left-style default >/dev/null 2>&1
-    tmux -L tabs set-option -g status-right-style default >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-style default >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-current-style 'bg=colour250,fg=colour236,bold' >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-last-style default >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-activity-style reverse >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-bell-style reverse >/dev/null 2>&1
+    if [ "${1:-}" = refresh ]; then
+        # restore base styles when tmux reloads the tab configuration
+        tmux -L tabs set-option -g status-style 'bg=colour236,fg=colour245' >/dev/null 2>&1
+        tmux -L tabs set-option -g status-left-style default >/dev/null 2>&1
+        tmux -L tabs set-option -g status-right-style default >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-style default >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-current-style 'bg=colour250,fg=colour236,bold' >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-last-style default >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-activity-style reverse >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-bell-style reverse >/dev/null 2>&1
+        windows=$(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
+    else
+        # a hook can only change the window containing its pane
+        windows=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null)
+        [ -n "$windows" ] || windows=$(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
+    fi
 
     while IFS= read -r window; do
+        [ -n "$window" ] || continue
         attention=0
         while IFS= read -r state; do
             if [ "$state" = feedback ]; then
@@ -197,11 +217,17 @@ tabs_agent_hook() {
                 tmux -L tabs set-option -wu -t "$window" "$style" >/dev/null 2>&1
             done
         fi
-    done < <(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
+    done <<< "$windows"
     tmux -L tabs refresh-client >/dev/null 2>&1 || true
     # codex stop requires json and claude code accepts the same empty response
     printf '{}\n'
 }
+
+
+#
+# tab display
+#
+
 
 resize() (
     # resync terminal size after ssh misses a resize
@@ -324,7 +350,37 @@ render() {
     tmux -L tabs refresh-client
 }
 
+
+#
+# entry point
+#
+
+
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-    exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
+    if [ "${0##*/}" != codex ]; then
+        exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
+    fi
+    real=''
+    while IFS= read -r candidate; do
+        if [ ! "$candidate" -ef "$0" ]; then
+            real=$candidate
+            break
+        fi
+    done < <(type -a -p codex)
+    [ -n "$real" ] || { echo 'codex not found' >&2; exit 127; }
+    for arg in "$@"; do
+        case $arg in
+            --) break ;;
+            --no-daemon|--remote|--remote=*) exec "$real" "$@" ;;
+        esac
+    done
+    case ${1:-} in
+        agents|exec|e|review|login|logout|mcp|plugin|app-server|remote-control|app|completion|update|doctor|sandbox|debug|apply|cloud|queue|archive|delete|unarchive|migrate-rollouts)
+            exec "$real" "$@" ;;
+    esac
+    if [[ ${TMUX:-} == */tabs,* && -n ${TMUX_PANE:-} ]]; then
+        exec "$real" --no-daemon "$@"
+    fi
+    exec "$real" "$@"
 fi
