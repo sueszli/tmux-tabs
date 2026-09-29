@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+
+#
+# hook installation
+#
+
+
 tabs_install_json_hooks() {
     # merge agent hooks into json settings while preserving existing hooks
     local path=$1 agent=$2 events=$3 prefix=$4 old=$5 staged original
@@ -136,6 +142,12 @@ tabs_install_hooks() (
     fi
 )
 
+
+#
+# agent status
+#
+
+
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
     local agent event attention state style window windows
@@ -210,6 +222,12 @@ tabs_agent_hook() {
     # codex stop requires json and claude code accepts the same empty response
     printf '{}\n'
 }
+
+
+#
+# tab display
+#
+
 
 resize() (
     # resync terminal size after ssh misses a resize
@@ -331,6 +349,12 @@ render() {
     # refresh every tab label
     tmux -L tabs refresh-client
 }
+
+
+#
+# entry point
+#
+
 
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
