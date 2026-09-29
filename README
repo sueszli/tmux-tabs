@@ -40,6 +40,15 @@ keys:
     ctrl+→/← (or ctrl+f/b)  next / previous tab
 
 
+agent status:
+
+    tabs turns an agent's tab green when it needs input or finishes a turn.
+    with Codex CLI, start each tab with `codex --no-daemon`.
+    a shared Codex daemon can inherit TMUX_PANE from another tab, so its
+    lifecycle hooks cannot reliably color the tab that owns a turn.
+    to resume a session in its own tab, use `codex --no-daemon resume`.
+
+
 install to `~/.local/bin/tabs`:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash

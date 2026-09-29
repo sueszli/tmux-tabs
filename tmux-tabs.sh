@@ -138,7 +138,7 @@ tabs_install_hooks() (
 
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
-    local agent event attention state style window
+    local agent event attention state style window windows
     if [ "${1:-}" != refresh ]; then
         case ${TMUX%%,*} in */tabs) ;; *) printf '{}\n'; return 0 ;; esac
         [ -n "${TMUX_PANE:-}" ] || { printf '{}\n'; return 0; }
@@ -168,17 +168,24 @@ tabs_agent_hook() {
         esac
     fi
 
-    # keep the bar neutral and color only tabs waiting for input
-    tmux -L tabs set-option -g status-style 'bg=colour236,fg=colour245' >/dev/null 2>&1
-    tmux -L tabs set-option -g status-left-style default >/dev/null 2>&1
-    tmux -L tabs set-option -g status-right-style default >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-style default >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-current-style 'bg=colour250,fg=colour236,bold' >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-last-style default >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-activity-style reverse >/dev/null 2>&1
-    tmux -L tabs set-option -gw window-status-bell-style reverse >/dev/null 2>&1
+    if [ "${1:-}" = refresh ]; then
+        # restore base styles when tmux reloads the tab configuration
+        tmux -L tabs set-option -g status-style 'bg=colour236,fg=colour245' >/dev/null 2>&1
+        tmux -L tabs set-option -g status-left-style default >/dev/null 2>&1
+        tmux -L tabs set-option -g status-right-style default >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-style default >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-current-style 'bg=colour250,fg=colour236,bold' >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-last-style default >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-activity-style reverse >/dev/null 2>&1
+        tmux -L tabs set-option -gw window-status-bell-style reverse >/dev/null 2>&1
+        windows=$(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
+    else
+        # a hook can only change the window containing its pane
+        windows=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null)
+    fi
 
     while IFS= read -r window; do
+        [ -n "$window" ] || continue
         attention=0
         while IFS= read -r state; do
             if [ "$state" = feedback ]; then
@@ -197,7 +204,7 @@ tabs_agent_hook() {
                 tmux -L tabs set-option -wu -t "$window" "$style" >/dev/null 2>&1
             done
         fi
-    done < <(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
+    done <<< "$windows"
     tmux -L tabs refresh-client >/dev/null 2>&1 || true
     # codex stop requires json and claude code accepts the same empty response
     printf '{}\n'
