@@ -88,7 +88,7 @@ tabs_install_hooks() (
 
     config=$HOME/.codex/config.toml
     json=$HOME/.codex/hooks.json
-    if [ -f "$config" ] && grep -Eq '^[[:space:]]*\[\[?hooks([.]|\])' "$config"; then
+    if [ -f "$config" ] && grep -Eq '^[[:space:]]*\[\[?hooks([.][A-Z]|\])' "$config"; then
         if ! grep -Fq 'tabs_agent_hook codex SessionStart' "$config" || grep -Eq '^# [[:upper:]]+ tabs-agent-status$' "$config"; then
             [ -e "${config}.before-tabs" ] || cp -p "$config" "${config}.before-tabs"
             staged=$(mktemp "${config}.XXXXXX")
@@ -182,6 +182,7 @@ tabs_agent_hook() {
     else
         # a hook can only change the window containing its pane
         windows=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null)
+        [ -n "$windows" ] || windows=$(tmux -L tabs list-windows -a -F '#{window_id}' 2>/dev/null)
     fi
 
     while IFS= read -r window; do
