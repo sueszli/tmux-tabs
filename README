@@ -43,10 +43,12 @@ keys:
 agent status:
 
     tabs turns an agent's tab green when it needs input or finishes a turn.
-    with Codex CLI, start each tab with `codex --no-daemon`.
-    a shared Codex daemon can inherit TMUX_PANE from another tab, so its
-    lifecycle hooks cannot reliably color the tab that owns a turn.
-    to resume a session in its own tab, use `codex --no-daemon resume`.
+    the installer adds a `codex` shim alongside `tabs`. inside tabs, it runs
+    Codex with `--no-daemon` so hooks inherit the correct TMUX_PANE. outside
+    tabs, it runs Codex unchanged. this also works with `codex resume`.
+    the tabs install directory must precede the real Codex in PATH. the
+    installer never overwrites an existing command at ~/.local/bin/codex.
+    without the shim, use `codex --no-daemon` inside tabs manually.
 
 
 install to `~/.local/bin/tabs`:

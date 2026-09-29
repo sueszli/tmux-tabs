@@ -331,7 +331,36 @@ render() {
     tmux -L tabs refresh-client
 }
 
+tabs_codex() {
+    local candidate arg real='' add_flag=1
+    while IFS= read -r candidate; do
+        if [ ! "$candidate" -ef "$0" ]; then
+            real=$candidate
+            break
+        fi
+    done < <(type -a -p codex)
+    [ -n "$real" ] || { echo 'tabs: could not find codex' >&2; return 127; }
+    for arg in "$@"; do
+        case $arg in --no-daemon|--remote|--remote=*) add_flag=0 ;; esac
+    done
+    case ${1:-} in
+        agents|exec|e|review|login|logout|mcp|plugin|app-server|remote-control|app|completion|update|doctor|sandbox|debug|apply|cloud|queue|archive|delete|unarchive|migrate-rollouts)
+            add_flag=0 ;;
+    esac
+    case ${TMUX:-} in
+        */tabs,*)
+            if [ -n "${TMUX_PANE:-}" ] && [ "$add_flag" -eq 1 ]; then
+                exec "$real" --no-daemon "$@"
+            fi
+            ;;
+    esac
+    exec "$real" "$@"
+}
+
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-    exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
+    case ${0##*/} in
+        codex) tabs_codex "$@" ;;
+        *) exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs ;;
+    esac
 fi

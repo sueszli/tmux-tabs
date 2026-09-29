@@ -19,3 +19,11 @@ if ! cmp -s "$tmp" "$target" || [ ! -x "$target" ]; then
     echo "installed tabs at $target"
 fi
 BASH_ENV="$target" bash -c tabs_install_hooks
+
+shim="${target%/*}/codex"
+if [ ! -e "$shim" ] && [ ! -L "$shim" ]; then
+    ln -s tabs "$shim"
+    echo "installed Codex tabs shim at $shim"
+elif [ ! "$shim" -ef "$target" ]; then
+    echo "skipped Codex tabs shim: $shim already exists" >&2
+fi
