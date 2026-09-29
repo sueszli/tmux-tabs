@@ -47,13 +47,13 @@ tabs_install_json_hooks() {
         cp -p "$path" "${path}.before-tabs"
     fi
     mv "$staged" "$path"
-    printf 'configured %s status hooks in %s\n' "$agent" "$path"
+    printf 'hooks: %s %s\n' "$agent" "$path"
 }
 
 tabs_install_hooks() (
     # configure user hooks for claude code and codex cli
     set -euo pipefail
-    command -v jq >/dev/null || { echo 'agent status setup needs jq' >&2; exit 1; }
+    command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
     local self quoted old prefix claude_events codex_events config json event staged
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
     printf -v quoted '%q' "$self"
@@ -106,7 +106,7 @@ tabs_install_hooks() (
                 printf '# end tabs-agent-status\n'
             } >> "$staged"
             mv "$staged" "$config"
-            printf 'configured codex status hooks in %s\n' "$config"
+            printf 'hooks: codex %s\n' "$config"
         fi
         # migrate old tabs hooks stored beside inline codex hooks
         if [ -f "$json" ] && jq -e --arg old "$old" '
@@ -332,36 +332,31 @@ render() {
     tmux -L tabs refresh-client
 }
 
-tabs_codex() {
-    local candidate arg real='' add_flag=1
+# tmux callbacks source the functions from this file
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    if [ "${0##*/}" != codex ]; then
+        exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
+    fi
+    real=''
     while IFS= read -r candidate; do
         if [ ! "$candidate" -ef "$0" ]; then
             real=$candidate
             break
         fi
     done < <(type -a -p codex)
-    [ -n "$real" ] || { echo 'tabs: could not find codex' >&2; return 127; }
+    [ -n "$real" ] || { echo 'codex not found' >&2; exit 127; }
     for arg in "$@"; do
-        case $arg in --no-daemon|--remote|--remote=*) add_flag=0 ;; esac
+        case $arg in
+            --) break ;;
+            --no-daemon|--remote|--remote=*) exec "$real" "$@" ;;
+        esac
     done
     case ${1:-} in
         agents|exec|e|review|login|logout|mcp|plugin|app-server|remote-control|app|completion|update|doctor|sandbox|debug|apply|cloud|queue|archive|delete|unarchive|migrate-rollouts)
-            add_flag=0 ;;
+            exec "$real" "$@" ;;
     esac
-    case ${TMUX:-} in
-        */tabs,*)
-            if [ -n "${TMUX_PANE:-}" ] && [ "$add_flag" -eq 1 ]; then
-                exec "$real" --no-daemon "$@"
-            fi
-            ;;
-    esac
+    if [[ ${TMUX:-} == */tabs,* && -n ${TMUX_PANE:-} ]]; then
+        exec "$real" --no-daemon "$@"
+    fi
     exec "$real" "$@"
-}
-
-# tmux callbacks source the functions from this file
-if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-    case ${0##*/} in
-        codex) tabs_codex "$@" ;;
-        *) exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs ;;
-    esac
 fi
