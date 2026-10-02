@@ -4,6 +4,20 @@
 # hook installation
 #
 
+tabs_finish_hook_file() {
+    # preserve backups and avoid replacing unchanged hook files
+    local staged=$1 path=$2 agent=$3
+    if [ -f "$path" ] && cmp -s "$staged" "$path"; then
+        rm "$staged"
+        return 0
+    fi
+    if [ -f "$path" ] && [ ! -e "${path}.before-tabs" ]; then
+        cp -p "$path" "${path}.before-tabs"
+    fi
+    mv "$staged" "$path"
+    printf 'hooks: %s %s\n' "$agent" "$path"
+}
+
 tabs_install_json_hooks() {
     # merge agent hooks into json settings while preserving existing hooks
     local path=$1 agent=$2 events=$3 prefix=$4 old=$5 staged original
@@ -43,15 +57,7 @@ tabs_install_json_hooks() {
         rm "$staged"
         return 1
     fi
-    if [ -f "$path" ] && cmp -s "$staged" "$path"; then
-        rm "$staged"
-        return 0
-    fi
-    if [ -f "$path" ] && [ ! -e "${path}.before-tabs" ]; then
-        cp -p "$path" "${path}.before-tabs"
-    fi
-    mv "$staged" "$path"
-    printf 'hooks: %s %s\n' "$agent" "$path"
+    tabs_finish_hook_file "$staged" "$path" "$agent"
 }
 
 tabs_install_pi_hooks() {
@@ -96,15 +102,7 @@ export default function (pi) {
 }
 JS
     } >"$staged"
-    if [ -f "$path" ] && cmp -s "$staged" "$path"; then
-        rm "$staged"
-        return 0
-    fi
-    if [ -f "$path" ]; then
-        [ -e "${path}.before-tabs" ] || cp -p "$path" "${path}.before-tabs"
-    fi
-    mv "$staged" "$path"
-    printf 'hooks: pi %s\n' "$path"
+    tabs_finish_hook_file "$staged" "$path" pi
 }
 
 tabs_install_hooks() (
@@ -133,15 +131,10 @@ tabs_install_hooks() (
       ["StopFailure", null, "StopFailure"],
       ["SessionEnd", null, "SessionEnd"]
     ]'
-    codex_events='[
-      ["SessionStart", "startup|resume", "SessionStart"],
-      ["UserPromptSubmit", null, "UserPromptSubmit"],
-      ["PermissionRequest", null, "PermissionRequest"],
-      ["PostToolUse", null, "PostToolUse"],
-      ["Stop", null, "Stop"],
-      ["Interrupt", null, "Interrupt"],
-      ["SessionEnd", null, "SessionEnd"]
-    ]'
+    local codex_event_names=(SessionStart UserPromptSubmit PermissionRequest PostToolUse Stop Interrupt SessionEnd)
+    codex_events=$(jq -n --args '
+        $ARGS.positional | map([., (if . == "SessionStart" then "startup|resume" else null end), .])
+    ' "${codex_event_names[@]}")
 
     json=$HOME/.claude/settings.json
     tabs_install_json_hooks "$json" claude "$claude_events" "$prefix" "$old"
@@ -158,7 +151,7 @@ tabs_install_hooks() (
             fi
             {
                 printf '\n# begin tabs-agent-status\n'
-                for event in SessionStart UserPromptSubmit PermissionRequest PostToolUse Stop Interrupt SessionEnd; do
+                for event in "${codex_event_names[@]}"; do
                     printf '[[hooks.%s]]\n' "$event"
                     [ "$event" != SessionStart ] || printf 'matcher = "startup|resume"\n'
                     printf 'hooks = [{ type = "command", command = %s, timeout = 3 }]\n\n' "$(jq -n --arg command "$prefix codex $event'" '$command')"
@@ -204,17 +197,12 @@ tabs_install_hooks() (
 
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
-    local agent event attention state style window windows
+    local agent event style window windows
     if [ "${1:-}" != refresh ]; then
-        case ${TMUX%%,*} in */tabs) ;; *)
+        if [[ ${TMUX%%,*} != */tabs || -z ${TMUX_PANE:-} ]]; then
             printf '{}\n'
             return 0
-            ;;
-        esac
-        [ -n "${TMUX_PANE:-}" ] || {
-            printf '{}\n'
-            return 0
-        }
+        fi
 
         agent=${1:-}
         event=${2:-}
@@ -260,15 +248,7 @@ tabs_agent_hook() {
 
     while IFS= read -r window; do
         [ -n "$window" ] || continue
-        attention=0
-        while IFS= read -r state; do
-            if [ "$state" = feedback ]; then
-                attention=1
-                break
-            fi
-        done < <(tmux -L tabs list-panes -t "$window" -F '#{@tabs_state}' 2>/dev/null)
-
-        if [ "$attention" = 1 ]; then
+        if grep -qx feedback < <(tmux -L tabs list-panes -t "$window" -F '#{@tabs_state}' 2>/dev/null); then
             for style in window-status-style window-status-last-style window-status-activity-style window-status-bell-style; do
                 tmux -L tabs set-option -w -t "$window" "$style" 'bg=colour34,fg=colour232' >/dev/null 2>&1
             done
