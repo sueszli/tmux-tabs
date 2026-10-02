@@ -19,6 +19,28 @@ TABS_CLAUDE_EVENTS='[
     ["SessionEnd", null, "SessionEnd"]
 ]'
 
+# shellcheck disable=SC2016
+TABS_PI_EXTENSION='
+export default function (pi) {
+    if (!process.env.TMUX?.split(",")[0].endsWith("/tabs") || !process.env.TMUX_PANE) return;
+
+    async function update(event, ctx) {
+        if (ctx.mode !== "tui") return;
+        try {
+            await pi.exec("bash", ["-c", '\''source "$1"; tabs_agent_hook pi "$2"'\'',
+                "tmux-tabs", hook, event], { timeout: 3000 });
+        } catch {
+            // status updates must not interrupt the agent.
+        }
+    }
+
+    pi.on("session_start", (_event, ctx) => update("SessionStart", ctx));
+    pi.on("agent_start", (_event, ctx) => update("UserPromptSubmit", ctx));
+    // agent_end can precede retries, compaction and queued follow-ups.
+    pi.on("agent_settled", (_event, ctx) => update("Stop", ctx));
+    pi.on("session_shutdown", (_event, ctx) => update("SessionEnd", ctx));
+}'
+
 tabs_finish_hook_file() {
     # preserve backups and avoid replacing unchanged hook files
     local staged=$1 path=$2
@@ -95,28 +117,7 @@ tabs_install_pi_hooks() {
     fi
     {
         printf 'const hook = %s;\n' "$(jq -n --arg path "$self" '$path')"
-        cat <<'JS'
-
-export default function (pi) {
-    if (!process.env.TMUX?.split(",")[0].endsWith("/tabs") || !process.env.TMUX_PANE) return;
-
-    async function update(event, ctx) {
-        if (ctx.mode !== "tui") return;
-        try {
-            await pi.exec("bash", ["-c", 'source "$1"; tabs_agent_hook pi "$2"',
-                "tmux-tabs", hook, event], { timeout: 3000 });
-        } catch {
-            // status updates must not interrupt the agent.
-        }
-    }
-
-    pi.on("session_start", (_event, ctx) => update("SessionStart", ctx));
-    pi.on("agent_start", (_event, ctx) => update("UserPromptSubmit", ctx));
-    // agent_end can precede retries, compaction and queued follow-ups.
-    pi.on("agent_settled", (_event, ctx) => update("Stop", ctx));
-    pi.on("session_shutdown", (_event, ctx) => update("SessionEnd", ctx));
-}
-JS
+        printf '%s\n' "$TABS_PI_EXTENSION"
     } >"$staged"
     tabs_finish_hook_file "$staged" "$path" pi
 }
@@ -134,9 +135,7 @@ tabs_install_hooks() (
     old=${self}-agent-hook
     prefix="BASH_ENV=$quoted bash -c 'tabs_agent_hook"
     local codex_event_names=(SessionStart UserPromptSubmit PermissionRequest PostToolUse Stop Interrupt SessionEnd)
-    codex_events=$(jq -n --args '
-        $ARGS.positional | map([., (if . == "SessionStart" then "startup|resume" else null end), .])
-    ' "${codex_event_names[@]}")
+    codex_events=$(jq -n --args '$ARGS.positional | map([., (if . == "SessionStart" then "startup|resume" else null end), .])' "${codex_event_names[@]}")
 
     json=$HOME/.claude/settings.json
     tabs_install_json_hooks "$json" claude "$TABS_CLAUDE_EVENTS" "$prefix" "$old"
