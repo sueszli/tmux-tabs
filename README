@@ -53,27 +53,3 @@ update with:
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
-
-
-Pi status (requires Pi 0.80.4+):
-
-installing or updating tabs installs `~/.pi/agent/extensions/tmux-tabs.js`,
-respecting `PI_CODING_AGENT_DIR`. Restart Pi or run `/reload` to load it.
-Interactive Pi runs show a blinking dot while working and turn green once
-settled, including retries and queued follow-ups. Status clears on session exit.
-Print/JSON/RPC runs are ignored. Mid-run permission and question dialogs are
-not detected.
-
-
-development:
-
-    install ShellCheck and shfmt (macOS: brew install shellcheck shfmt).
-    on Linux, use your package manager or the upstream release binaries:
-      https://github.com/koalaman/shellcheck
-      https://github.com/mvdan/sh
-
-    make help  list available targets; also the default target
-    make fmt   format Bash files in place (4-space indentation)
-    make lint  ShellCheck, Bash syntax and read-only formatting checks
-
-    override tool paths with SHELLCHECK=... and SHFMT=... if needed.
