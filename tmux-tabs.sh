@@ -59,8 +59,8 @@ tabs_install_pi_hooks() {
     local self=$1 path staged
     path=${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}
     case $path in
-        '~') path=$HOME ;;
-        '~/'*) path=$HOME/${path#\~/} ;;
+        \~) path=$HOME ;;
+        \~/*) path=$HOME/${path#\~/} ;;
     esac
     path=$path/extensions/tmux-tabs.js
     mkdir -p "${path%/*}"
