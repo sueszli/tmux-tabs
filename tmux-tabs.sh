@@ -55,10 +55,10 @@ tabs_install_json_hooks() {
 }
 
 tabs_install_pi_hooks() {
-    # pi discovers JavaScript extensions in its agent directory
+    # pi discovers javascript extensions in its agent directory
     local self=$1 path staged
     path=${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}
-    # Match literal tildes from the environment, then expand them ourselves.
+    # match literal tildes from the environment, then expand them ourselves.
     # shellcheck disable=SC2088
     case $path in
         '~') path=$HOME ;;

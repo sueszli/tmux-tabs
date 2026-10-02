@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A PATH-level stub also catches tmux calls made from subshells.
+# a path-level stub also catches tmux calls made from subshells.
 set -euo pipefail
 printf '%s\n' "$*" >>"$TMUX_CALLS"
 [ "${1:-}" != -L ] || shift 2

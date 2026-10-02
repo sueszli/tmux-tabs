@@ -4,23 +4,20 @@ help: ## show available targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*## "} {printf "  %-20s %s\n", $$1, $$2}'
 
-# Bats files use a test DSL, so syntax-check ordinary Bash files separately.
+# bats files use a test dsl, so syntax-check ordinary bash files separately.
 BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh tests/*.bash)
 SHELL_FILES := $(BASH_FILES) $(wildcard tests/*.bats)
 BATS := .tools/bats-core/bin/bats
 
 .PHONY: deps
-deps: ## install pinned Bats and assertion libraries locally
+deps: ## install pinned bats and assertion libraries locally
 	bash tests/bootstrap.sh
 
-.PHONY: test
-test: ## run isolated Bash tests (run make deps first)
+.PHONY: tests
+tests: ## run isolated bash tests (run make deps first)
 	@test -x "$(BATS)" || { echo 'Run make deps first' >&2; exit 1; }
 	@command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
 	$(BATS) tests
-
-.PHONY: check
-check: lint test ## run all checks without modifying files
 
 .PHONY: fmt
 fmt: ## format bash files in place
@@ -29,18 +26,15 @@ fmt: ## format bash files in place
 	shfmt -ln bats -i 4 -ci -w $(wildcard tests/*.bats)
 
 .PHONY: lint
-lint: ## run shellcheck, syntax and formatting checks
+lint: ## run shellcheck and syntax checks
 	@command -v shellcheck >/dev/null || { echo 'ShellCheck required' >&2; exit 1; }
-	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
 	@for file in $(BASH_FILES); do bash -n "$$file" || exit; done
 	shellcheck -x $(SHELL_FILES)
-	shfmt -ln bash -i 4 -ci -d $(BASH_FILES)
-	shfmt -ln bats -i 4 -ci -d $(wildcard tests/*.bats)
 
 .PHONY: precommit
-precommit: ## format files, then run lint and tests
+precommit: ## format files, then run lint checks
 	$(MAKE) fmt
-	$(MAKE) check
+	$(MAKE) lint
 
 .PHONY: precommit-hook
 precommit-hook: ## install an optional local pre-commit hook

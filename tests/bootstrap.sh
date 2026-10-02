@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install pinned test tools locally; no sudo or global packages required.
+# install pinned test tools locally; no sudo or global packages required.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

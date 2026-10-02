@@ -78,7 +78,7 @@ load test_helper
 }
 
 @test "Pi extension paths expand a literal tilde from the environment" {
-    # shellcheck disable=SC2088,SC2016 # Literal tilde; expansion in child bash.
+    # shellcheck disable=SC2088,SC2016 # literal tilde; expansion in child bash.
     run env PI_CODING_AGENT_DIR='~/custom-agent' bash -c \
         'source "$1"; tabs_install_pi_hooks "$1"' bash "$PROJECT_ROOT/tmux-tabs.sh"
     assert_success
