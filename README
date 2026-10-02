@@ -53,3 +53,17 @@ update with:
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
+
+
+agent status:
+
+    Claude Code, Codex CLI, and Pi show a blinking dot while working.
+    Tabs turn green when an agent finishes or requests input.
+    Agent status is cleared on session exit.
+
+installing or updating tabs configures the agent hooks automatically.
+Pi uses `~/.pi/agent/extensions/tmux-tabs.js` (or the agent directory set
+by `PI_CODING_AGENT_DIR`). Restart Pi or run `/reload` after installation.
+The Pi hook only tracks interactive runs inside tabs, not print/JSON/RPC runs.
+Pi completion uses the `agent_settled` extension event so retries and queued
+follow-ups remain marked as working; a Pi version supporting that event is required.
