@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
-
 #
 # hook installation
 #
-
 
 tabs_install_json_hooks() {
     # merge agent hooks into json settings while preserving existing hooks
@@ -41,7 +39,7 @@ tabs_install_json_hooks() {
               ]
               end
           )
-    ' <<< "$original" > "$staged"; then
+    ' <<<"$original" >"$staged"; then
         rm "$staged"
         return 1
     fi
@@ -56,10 +54,66 @@ tabs_install_json_hooks() {
     printf 'hooks: %s %s\n' "$agent" "$path"
 }
 
+tabs_install_pi_hooks() {
+    # pi discovers JavaScript extensions in its agent directory
+    local self=$1 path staged
+    path=${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}
+    case $path in
+        '~') path=$HOME ;;
+        '~/'*) path=$HOME/${path#\~/} ;;
+    esac
+    path=$path/extensions/tmux-tabs.js
+    mkdir -p "${path%/*}"
+    staged=$(mktemp "${path}.XXXXXX") || return 1
+    if [ -f "$path" ]; then
+        cp -p "$path" "$staged" || {
+            rm "$staged"
+            return 1
+        }
+    fi
+    {
+        printf 'const hook = %s;\n' "$(jq -n --arg path "$self" '$path')"
+        cat <<'JS'
+
+export default function (pi) {
+    if (!process.env.TMUX?.split(",")[0].endsWith("/tabs") || !process.env.TMUX_PANE) return;
+
+    async function update(event, ctx) {
+        if (ctx.mode !== "tui") return;
+        try {
+            await pi.exec("bash", ["-c", 'source "$1"; tabs_agent_hook pi "$2"',
+                "tmux-tabs", hook, event], { timeout: 3000 });
+        } catch {
+            // status updates must not interrupt the agent.
+        }
+    }
+
+    pi.on("session_start", (_event, ctx) => update("SessionStart", ctx));
+    pi.on("agent_start", (_event, ctx) => update("UserPromptSubmit", ctx));
+    // agent_end can precede retries, compaction and queued follow-ups.
+    pi.on("agent_settled", (_event, ctx) => update("Stop", ctx));
+    pi.on("session_shutdown", (_event, ctx) => update("SessionEnd", ctx));
+}
+JS
+    } >"$staged"
+    if [ -f "$path" ] && cmp -s "$staged" "$path"; then
+        rm "$staged"
+        return 0
+    fi
+    if [ -f "$path" ]; then
+        [ -e "${path}.before-tabs" ] || cp -p "$path" "${path}.before-tabs"
+    fi
+    mv "$staged" "$path"
+    printf 'hooks: pi %s\n' "$path"
+}
+
 tabs_install_hooks() (
-    # configure user hooks for claude code and codex cli
+    # configure user hooks for claude code, codex cli and pi
     set -euo pipefail
-    command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
+    command -v jq >/dev/null || {
+        echo 'jq required' >&2
+        exit 1
+    }
     local self quoted old prefix claude_events codex_events config json event staged
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
     printf -v quoted '%q' "$self"
@@ -100,7 +154,7 @@ tabs_install_hooks() (
             staged=$(mktemp "${config}.XXXXXX")
             cp -p "$config" "$staged"
             if grep -Eqi '^# begin tabs-agent-status$' "$config"; then
-                sed '/^# [Bb][Ee][Gg][Ii][Nn] tabs-agent-status$/,/^# [Ee][Nn][Dd] tabs-agent-status$/d' "$config" > "$staged"
+                sed '/^# [Bb][Ee][Gg][Ii][Nn] tabs-agent-status$/,/^# [Ee][Nn][Dd] tabs-agent-status$/d' "$config" >"$staged"
             fi
             {
                 printf '\n# begin tabs-agent-status\n'
@@ -110,7 +164,7 @@ tabs_install_hooks() (
                     printf 'hooks = [{ type = "command", command = %s, timeout = 3 }]\n\n' "$(jq -n --arg command "$prefix codex $event'" '$command')"
                 done
                 printf '# end tabs-agent-status\n'
-            } >> "$staged"
+            } >>"$staged"
             mv "$staged" "$config"
             printf 'hooks: codex %s\n' "$config"
         fi
@@ -130,7 +184,7 @@ tabs_install_hooks() (
                     ))
                     | select(.hooks | length > 0)
                 ))
-            ' "$json" > "$staged"
+            ' "$json" >"$staged"
             if jq -e 'keys == ["hooks"] and ([.hooks[][]?] | length) == 0' "$staged" >/dev/null; then
                 rm "$staged" "$json"
             else
@@ -140,42 +194,49 @@ tabs_install_hooks() (
     else
         tabs_install_json_hooks "$json" codex "$codex_events" "$prefix" "$old"
     fi
-)
 
+    tabs_install_pi_hooks "$self"
+)
 
 #
 # agent status
 #
 
-
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
     local agent event attention state style window windows
     if [ "${1:-}" != refresh ]; then
-        case ${TMUX%%,*} in */tabs) ;; *) printf '{}\n'; return 0 ;; esac
-        [ -n "${TMUX_PANE:-}" ] || { printf '{}\n'; return 0; }
+        case ${TMUX%%,*} in */tabs) ;; *)
+            printf '{}\n'
+            return 0
+            ;;
+        esac
+        [ -n "${TMUX_PANE:-}" ] || {
+            printf '{}\n'
+            return 0
+        }
 
         agent=${1:-}
         event=${2:-}
-        case $agent in claude|codex) ;; *) return 1 ;; esac
+        case $agent in claude | codex | pi) ;; *) return 1 ;; esac
 
         case $event in
-        SessionEnd)
-            tmux -L tabs set-option -p -u -t "$TMUX_PANE" @tabs_agent >/dev/null 2>&1
-            tmux -L tabs set-option -p -u -t "$TMUX_PANE" @tabs_state >/dev/null 2>&1
-            ;;
-        SessionStart)
-            tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
-            tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state idle >/dev/null 2>&1
-            ;;
-        Stop|StopFailure|Interrupt|PermissionRequest|PreQuestion)
-            tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
-            tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state feedback >/dev/null 2>&1
-            ;;
-        UserPromptSubmit|PostToolUse|PostToolUseFailure|PostQuestion)
-            tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
-            tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state working >/dev/null 2>&1
-            ;;
+            SessionEnd)
+                tmux -L tabs set-option -p -u -t "$TMUX_PANE" @tabs_agent >/dev/null 2>&1
+                tmux -L tabs set-option -p -u -t "$TMUX_PANE" @tabs_state >/dev/null 2>&1
+                ;;
+            SessionStart)
+                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
+                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state idle >/dev/null 2>&1
+                ;;
+            Stop | StopFailure | Interrupt | PermissionRequest | PreQuestion)
+                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
+                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state feedback >/dev/null 2>&1
+                ;;
+            UserPromptSubmit | PostToolUse | PostToolUseFailure | PostQuestion)
+                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
+                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state working >/dev/null 2>&1
+                ;;
             *) return 1 ;;
         esac
     fi
@@ -217,17 +278,15 @@ tabs_agent_hook() {
                 tmux -L tabs set-option -wu -t "$window" "$style" >/dev/null 2>&1
             done
         fi
-    done <<< "$windows"
+    done <<<"$windows"
     tmux -L tabs refresh-client >/dev/null 2>&1 || true
     # codex stop requires json and claude code accepts the same empty response
     printf '{}\n'
 }
 
-
 #
 # tab display
 #
-
 
 resize() (
     # resync terminal size after ssh misses a resize
@@ -239,23 +298,20 @@ resize() (
     mkdir "$lock" 2>/dev/null || exit 0
     trap 'rmdir "$lock" 2>/dev/null' EXIT INT TERM
 
-    # read the reply without echo
-    exec < /dev/tty
+    exec </dev/tty
     saved=$(stty -g) || exit 1
     stty raw -echo
 
     # query terminal size through tmux
-    printf '\ePtmux;\e\e[18t\e\\' > /dev/tty
-    IFS= read -r -d t -t 3 reply
+    printf '\033Ptmux;\033\033[18t\033\134' >/dev/tty
+    IFS= read -r -d t -t 3.0 reply
     stty "$saved"
 
-    # parse rows and columns
     rows=${reply#*'[8;'}
     rows=${rows%%;*}
     cols=${reply##*;}
-    case $rows$cols in *[!0-9]*|'') exit 1 ;; esac
+    case $rows$cols in *[!0-9]* | '') exit 1 ;; esac
 
-    # update the client tty
     stty -F "$tty" columns "$cols" rows "$rows" 2>/dev/null || stty -f "$tty" columns "$cols" rows "$rows" 2>/dev/null || exit 1
     tmux refresh-client
     exit 0
@@ -286,7 +342,7 @@ tab_label() {
     ')
     fi
     marker='•'
-    if [ "$state" = working ] && [ $(( $(date +%s) % 2 )) -eq 1 ]; then
+    if [ "$state" = working ] && [ $(($(date +%s) % 2)) -eq 1 ]; then
         marker=' '
     fi
     printf '%s %s\n' "$marker" "$agent"
@@ -333,10 +389,12 @@ render() {
     # reload config, correct shell size and redraw tab labels
     local pane=$1 pane_cmd file
 
-    # load the latest installed config
     file=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || return 1
-    tmux_config > "$file"
-    tmux -L tabs source-file "$file" || { rm -f "$file"; return 1; }
+    tmux_config >"$file"
+    tmux -L tabs source-file "$file" || {
+        rm -f "$file"
+        return 1
+    }
     rm -f "$file"
     tabs_agent_hook refresh >/dev/null
 
@@ -346,15 +404,12 @@ render() {
         *sh) tmux -L tabs send-keys -t "$pane" " env BASH_ENV=${BASH_SOURCE[0]} bash -c resize >/dev/null 2>&1; clear" Enter ;;
     esac
 
-    # refresh every tab label
     tmux -L tabs refresh-client
 }
-
 
 #
 # entry point
 #
-
 
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
@@ -368,16 +423,20 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
             break
         fi
     done < <(type -a -p codex)
-    [ -n "$real" ] || { echo 'codex not found' >&2; exit 127; }
+    [ -n "$real" ] || {
+        echo 'codex not found' >&2
+        exit 127
+    }
     for arg in "$@"; do
         case $arg in
             --) break ;;
-            --no-daemon|--remote|--remote=*) exec "$real" "$@" ;;
+            --no-daemon | --remote | --remote=*) exec "$real" "$@" ;;
         esac
     done
     case ${1:-} in
-        agents|exec|e|review|login|logout|mcp|plugin|app-server|remote-control|app|completion|update|doctor|sandbox|debug|apply|cloud|queue|archive|delete|unarchive|migrate-rollouts)
-            exec "$real" "$@" ;;
+        agents | exec | e | review | login | logout | mcp | plugin | app-server | remote-control | app | completion | update | doctor | sandbox | debug | apply | cloud | queue | archive | delete | unarchive | migrate-rollouts)
+            exec "$real" "$@"
+            ;;
     esac
     if [[ ${TMUX:-} == */tabs,* && -n ${TMUX_PANE:-} ]]; then
         exec "$real" --no-daemon "$@"
