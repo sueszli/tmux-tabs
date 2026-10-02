@@ -4,32 +4,27 @@ help: ## show available targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*## "} {printf "  %-20s %s\n", $$1, $$2}'
 
-# bats files use a test dsl, so syntax-check ordinary bash files separately.
-BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
-SHELL_FILES := $(BASH_FILES) $(wildcard tests/*.bats)
-BATS := .tools/bats-core/bin/bats
-
 .PHONY: deps
 deps: ## install pinned bats and assertion libraries locally
 	bash tests/bootstrap.sh
 
 .PHONY: tests
 tests: ## run isolated bash tests (run make deps first)
-	@test -x "$(BATS)" || { echo 'Run make deps first' >&2; exit 1; }
+	@test -x ".tools/bats-core/bin/bats" || { echo 'Run make deps first' >&2; exit 1; }
 	@command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
-	$(BATS) tests
+	.tools/bats-core/bin/bats tests
 
 .PHONY: fmt
 fmt: ## format bash files in place
 	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
-	shfmt -ln bash -i 4 -ci -w $(BASH_FILES)
+	shfmt -ln bash -i 4 -ci -w tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
 	shfmt -ln bats -i 4 -ci -w $(wildcard tests/*.bats)
 
 .PHONY: lint
 lint: ## run shellcheck and syntax checks
 	@command -v shellcheck >/dev/null || { echo 'ShellCheck required' >&2; exit 1; }
-	@for file in $(BASH_FILES); do bash -n "$$file" || exit; done
-	shellcheck -x $(SHELL_FILES)
+	@for file in tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh); do bash -n "$$file" || exit; done
+	shellcheck -x tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh) $(wildcard tests/*.bats)
 
 .PHONY: precommit
 precommit: ## format files, then run lint checks
