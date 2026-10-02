@@ -57,7 +57,12 @@ tabs_install_json_hooks() {
 tabs_install_pi_hooks() {
     # pi discovers JavaScript extensions in its agent directory
     local self=$1 path staged
-    path=${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/tmux-tabs.js
+    path=${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}
+    case $path in
+        '~') path=$HOME ;;
+        '~/'*) path=$HOME/${path#\~/} ;;
+    esac
+    path=$path/extensions/tmux-tabs.js
     mkdir -p "${path%/*}"
     staged=$(mktemp "${path}.XXXXXX") || return 1
     if [ -f "$path" ]; then
@@ -331,7 +336,7 @@ tab_label() {
             for (pid in parent) {
                 current = pid
                 while (current != root && current in parent) current = parent[current]
-                if (current == root && command[pid] ~ /(^|\/)(codex|claude|pi)$/) {
+                if (current == root && command[pid] ~ /(^|\/)(codex|claude)$/) {
                     sub(/^.*\//, "", command[pid])
                     print command[pid]
                     exit

@@ -55,18 +55,14 @@ to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
 
 
-agent status:
+Pi status (requires Pi 0.80.4+):
 
-    Claude Code, Codex CLI and Pi show a blinking dot while working.
-    Tabs turn green when an agent finishes or requests input.
-    Agent status is cleared on session exit.
-
-installing or updating tabs configures the agent hooks automatically.
-Pi uses `~/.pi/agent/extensions/tmux-tabs.js` (or the agent directory set
-by `PI_CODING_AGENT_DIR`). Restart Pi or run `/reload` after installation.
-The Pi hook only tracks interactive runs inside tabs, not print/JSON/RPC runs.
-Pi completion uses the `agent_settled` extension event so retries and queued
-follow-ups remain marked as working. A Pi version supporting that event is required.
+installing or updating tabs installs `~/.pi/agent/extensions/tmux-tabs.js`,
+respecting `PI_CODING_AGENT_DIR`. Restart Pi or run `/reload` to load it.
+Interactive Pi runs show a blinking dot while working and turn green once
+settled, including retries and queued follow-ups. Status clears on session exit.
+Print/JSON/RPC runs are ignored. Mid-run permission and question dialogs are
+not detected.
 
 
 development:
@@ -75,17 +71,9 @@ development:
     on Linux, use your package manager or the upstream release binaries:
       https://github.com/koalaman/shellcheck
       https://github.com/mvdan/sh
-    tests also require jq and Node.js.
 
-    make help            list available targets; also the default target
-    make fmt             format Bash files in place (4-space indentation)
-    make lint            ShellCheck and read-only formatting checks
-    make syntax          Bash and JavaScript syntax checks
-    make tests           run tests/*.sh (fails if no tests exist)
-    make check           syntax, lint and tests
-    make precommit       format, then run all checks
-    make precommit-hook  optionally install a local pre-commit hook
+    make help  list available targets; also the default target
+    make fmt   format Bash files in place (4-space indentation)
+    make lint  ShellCheck, Bash syntax and read-only formatting checks
 
-    the hook runs make check without modifying or staging files, and will
-    not overwrite an existing hook or a custom core.hooksPath.
     override tool paths with SHELLCHECK=... and SHFMT=... if needed.
