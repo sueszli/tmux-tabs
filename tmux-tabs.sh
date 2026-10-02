@@ -5,6 +5,7 @@
 #
 
 tabs_install_json_hooks() {
+    # merge agent hooks into json settings while preserving existing hooks
     local path=$1 agent=$2 events=$3 prefix=$4 old=$5 staged original
     mkdir -p "${path%/*}"
     staged=$(mktemp "${path}.XXXXXX") || return 1
@@ -54,6 +55,7 @@ tabs_install_json_hooks() {
 }
 
 tabs_install_pi_hooks() {
+    # pi discovers JavaScript extensions in its agent directory
     local self=$1 path staged
     path=${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}
     case $path in
@@ -106,6 +108,7 @@ JS
 }
 
 tabs_install_hooks() (
+    # configure user hooks for claude code, codex cli and pi
     set -euo pipefail
     command -v jq >/dev/null || {
         echo 'jq required' >&2
@@ -200,6 +203,7 @@ tabs_install_hooks() (
 #
 
 tabs_agent_hook() {
+    # update pane state and color tabs waiting for input
     local agent event attention state style window windows
     if [ "${1:-}" != refresh ]; then
         case ${TMUX%%,*} in */tabs) ;; *)
@@ -345,6 +349,7 @@ tab_label() {
 }
 
 tmux_config() {
+    # print the config for the tabs server
     local self
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
 
@@ -381,6 +386,7 @@ CONF
 }
 
 render() {
+    # reload config, correct shell size and redraw tab labels
     local pane=$1 pane_cmd file
 
     file=$(mktemp "${TMPDIR:-/tmp}/tabs-conf.XXXXXX") || return 1

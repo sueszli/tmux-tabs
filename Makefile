@@ -1,11 +1,3 @@
-SHELL := /bin/bash
-.DEFAULT_GOAL := help
-
-SHELLCHECK ?= shellcheck
-SHFMT ?= shfmt
-SH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
-SHFMT_FLAGS := -i 4 -ci
-
 .PHONY: help
 help: ## show available targets
 	@printf 'Usage: make <target>\n\nAvailable targets:\n'
@@ -14,16 +6,16 @@ help: ## show available targets
 
 .PHONY: fmt
 fmt: ## format bash files in place
-	@command -v $(SHFMT) >/dev/null || { echo 'shfmt required (see README)' >&2; exit 1; }
-	$(SHFMT) $(SHFMT_FLAGS) -w $(SH_FILES)
+	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
+	shfmt -i 4 -ci -w tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
 
 .PHONY: lint
 lint: ## run shellcheck, syntax and formatting checks
-	@command -v $(SHELLCHECK) >/dev/null || { echo 'ShellCheck required (see README)' >&2; exit 1; }
-	@command -v $(SHFMT) >/dev/null || { echo 'shfmt required (see README)' >&2; exit 1; }
-	@for file in $(SH_FILES); do bash -n "$$file" || exit; done
-	$(SHELLCHECK) $(SH_FILES)
-	$(SHFMT) $(SHFMT_FLAGS) -d $(SH_FILES)
+	@command -v shellcheck >/dev/null || { echo 'ShellCheck required' >&2; exit 1; }
+	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
+	@for file in tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh); do bash -n "$$file" || exit; done
+	shellcheck tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
+	shfmt -i 4 -ci -d tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
 
 .PHONY: precommit
 precommit: ## format files, then run lint checks
