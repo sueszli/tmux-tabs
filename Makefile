@@ -5,7 +5,7 @@ help: ## show available targets
 		awk 'BEGIN {FS = ":.*## "} {printf "  %-20s %s\n", $$1, $$2}'
 
 # bats files use a test dsl, so syntax-check ordinary bash files separately.
-BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh tests/*.bash)
+BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
 SHELL_FILES := $(BASH_FILES) $(wildcard tests/*.bats)
 BATS := .tools/bats-core/bin/bats
 
