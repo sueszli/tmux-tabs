@@ -19,7 +19,7 @@ run --dry-run >/dev/null
 [ ! -e "$CODEX_HOME/AGENTS.md" ]
 [ ! -e "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules" ]
 run
-# Verify faithful syncing of the whole policy, not individual prose choices.
+# verify faithful syncing of the whole policy, not individual prose choices
 source "$repo/guardrails.sh"
 printf '%s\n' "$TABS_DEFAULT_POLICY" >"$sandbox/expected-policy"
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do

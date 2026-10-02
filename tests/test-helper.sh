@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shared bats setup. keep all writes and external commands inside the sandbox.
+# shared bats setup. keep all writes and external commands inside the sandbox
 setup() {
     PROJECT_ROOT=$(cd "$BATS_TEST_DIRNAME/.." && pwd)
     load "$PROJECT_ROOT/.tools/bats-support/load.bash"
