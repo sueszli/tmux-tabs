@@ -6,14 +6,38 @@
 tabs_sync_rules() (
     set -euo pipefail
     local source_file=${XDG_CONFIG_HOME:-$HOME/.config}/agents/AGENTS.md
-    local dry_run=0 path staged i bundled=''
-    local -a paths stages
-    stages=()
-    trap 'for staged in "${stages[@]}"; do rm -f "$staged"; done; [ -z "$bundled" ] || rm -f "$bundled"' EXIT
+    local dry_run=0 path staged i bundled='' committed=0 complete=0
+    local -a paths stages replacements originals
+    stages=() replacements=() originals=()
+    # shellcheck disable=SC2329
+    cleanup() {
+        local status=$? j
+        trap - EXIT
+        if [ "$complete" = 0 ]; then
+            for ((j = committed - 1; j >= 0; j--)); do
+                [ -n "${replacements[$j]}" ] || continue
+                if [ -n "${originals[$j]}" ]; then
+                    if ! mv -f "${originals[$j]}" "${paths[$j]}"; then
+                        echo "Rollback failed; recover ${paths[$j]} from ${originals[$j]}" >&2
+                        # retain recovery files
+                        exit 1
+                    fi
+                else
+                    rm -f "${paths[$j]}" || exit 1
+                fi
+            done
+        fi
+        for staged in "${stages[@]}"; do rm -f "$staged"; done
+        [ -z "$bundled" ] || rm -f "$bundled"
+        exit "$status"
+    }
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     if [ ! -e "$source_file" ]; then
         bundled=$(mktemp "${TMPDIR:-/tmp}/tabs-policy.XXXXXX")
         source_file=$bundled
-        cat > "$bundled" <<'POLICY'
+        cat >"$bundled" <<'POLICY'
 # Git, GitHub and GitLab workflow approvals
 
 Read-only Git, gh and glab commands, fetching, and non-destructive local
@@ -59,8 +83,12 @@ POLICY
             --migrate-git-rules) : ;; # compatibility: migration is now automatic
             --help)
                 printf 'Usage: tabs sync-rules [--dry-run] [FILE]\n'
-                return 0 ;;
-            --*) echo "Unknown option: $1" >&2; return 1 ;;
+                return 0
+                ;;
+            --*)
+                echo "Unknown option: $1" >&2
+                return 1
+                ;;
             *) source_file=$1 ;;
         esac
         shift
@@ -74,9 +102,9 @@ POLICY
         return 1
     fi
     paths=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}/CLAUDE.md"
-           "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
-           "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md")
-    # Render and validate every destination before changing any instruction file.
+        "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
+        "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md")
+    # validate all destinations before writing
     for path in "${paths[@]}"; do
         if [ -L "$path" ] || { [ -e "$path" ] && [ ! -f "$path" ]; }; then
             echo "Refusing symlink or non-regular destination: $path" >&2
@@ -87,7 +115,8 @@ POLICY
         awk -v policy="$source_file" '
             function emit( line) {
                 print "<!-- BEGIN TMUX-TABS SHARED RULES -->"
-                while ((getline line < policy) > 0) print line
+                while ((result = getline line < policy) > 0) print line
+                if (result < 0) { bad=1; exit 1 }
                 close(policy)
                 print "<!-- END TMUX-TABS SHARED RULES -->"
             }
@@ -105,14 +134,17 @@ POLICY
                 if (bad || inside) exit 1
                 if (!seen) { if (NR) print ""; emit() }
             }
-        ' "$(if [ -f "$path" ]; then printf '%s' "$path"; else printf /dev/null; fi)" > "$staged" || {
+        ' "$(if [ -f "$path" ]; then printf '%s' "$path"; else printf /dev/null; fi)" >"$staged" || {
             echo "Invalid/duplicate managed guardrail markers in $path" >&2
             return 1
         }
     done
+    # stage replacements and rollback copies
     for i in "${!paths[@]}"; do
         path=${paths[$i]}
         staged=${stages[$i]}
+        replacements[i]=''
+        originals[i]=''
         if [ -f "$path" ] && cmp -s "$path" "$staged"; then continue; fi
         if [ "$dry_run" = 1 ]; then
             diff -u "$(if [ -f "$path" ]; then printf '%s' "$path"; else printf /dev/null; fi)" "$staged" || [ "$?" = 1 ]
@@ -120,20 +152,36 @@ POLICY
             continue
         fi
         mkdir -p "${path%/*}"
-        if [ -f "$path" ]; then
-            [ -e "${path}.before-tabs-rules" ] || cp -p "$path" "${path}.before-tabs-rules"
+        local adjacent original backup="${path}.before-tabs-rules"
+        if [ -L "$backup" ] || { [ -e "$backup" ] && [ ! -f "$backup" ]; }; then
+            echo "Refusing symlink or non-regular backup: $backup" >&2
+            return 1
         fi
-        # Stage beside the destination for an atomic rename, preserving its mode.
-        local adjacent
+        if [ -f "$path" ]; then
+            original=$(mktemp "${path}.rollback.XXXXXX")
+            stages+=("$original")
+            cp -p "$path" "$original"
+            originals[i]=$original
+            [ -e "$backup" ] || cp -p "$path" "$backup"
+        fi
+        # same-filesystem rename, preserving mode
         adjacent=$(mktemp "${path}.XXXXXX")
         stages+=("$adjacent")
         if [ -f "$path" ]; then cp -p "$path" "$adjacent"; fi
         cp "$staged" "$adjacent"
-        mv "$adjacent" "$path"
-        printf 'rules: %s\n' "$path"
+        replacements[i]=$adjacent
+    done
+    for i in "${!paths[@]}"; do
+        # include failed renames in rollback
+        committed=$((i + 1))
+        [ -n "${replacements[$i]}" ] || continue
+        mv -f "${replacements[$i]}" "${paths[$i]}"
+    done
+    complete=1
+    for i in "${!paths[@]}"; do
+        [ -z "${replacements[$i]}" ] || printf 'rules: %s\n' "${paths[$i]}"
     done
 )
-
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     tabs_sync_rules "$@"

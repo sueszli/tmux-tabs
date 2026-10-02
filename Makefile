@@ -13,18 +13,20 @@ tests: ## run isolated bash tests (run make deps first)
 	@test -x ".tools/bats-core/bin/bats" || { echo 'Run make deps first' >&2; exit 1; }
 	@command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
 	.tools/bats-core/bin/bats tests
+	bash tests/shared-rules.sh
+	bash tests/install-guardrails.sh
 
 .PHONY: fmt
 fmt: ## format bash files in place
 	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
-	shfmt -ln bash -i 4 -ci -w tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
+	shfmt -ln bash -i 4 -ci -w tmux-tabs.sh guardrails.sh install.sh update.sh $(wildcard tests/*.sh)
 	shfmt -ln bats -i 4 -ci -w $(wildcard tests/*.bats)
 
 .PHONY: lint
 lint: ## run shellcheck and syntax checks
 	@command -v shellcheck >/dev/null || { echo 'ShellCheck required' >&2; exit 1; }
-	@for file in tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh); do bash -n "$$file" || exit; done
-	shellcheck -x tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh) $(wildcard tests/*.bats)
+	@for file in tmux-tabs.sh guardrails.sh install.sh update.sh $(wildcard tests/*.sh); do bash -n "$$file" || exit; done
+	shellcheck -x tmux-tabs.sh guardrails.sh install.sh update.sh $(wildcard tests/*.sh) $(wildcard tests/*.bats)
 
 .PHONY: precommit
 precommit: ## format files, then run lint checks

@@ -10,11 +10,12 @@ mkdir -p "$HOME/.local/share/tmux-tabs"
 cp "$repo/guardrails.sh" "$HOME/.local/share/tmux-tabs/guardrails.sh"
 run() { bash "$repo/tmux-tabs.sh" sync-rules "$@"; }
 
-# Installation/update syncs the bundled module; ordinary launches do not.
-grep -q 'bash "$module_dir/guardrails.sh"' "$repo/install.sh"
-! grep -q 'tabs_sync_rules --migrate' "$repo/tmux-tabs.sh"
-printf 'Claude-only instruction\n' > "$CLAUDE_CONFIG_DIR/CLAUDE.md"
-run --dry-run > /dev/null
+# installs sync rules; launches do not
+grep -q 'bash .*guardrails.sh' "$repo/install.sh"
+if grep -q 'tabs_sync_rules --migrate' "$repo/tmux-tabs.sh"; then exit 1; fi
+printf 'Claude-only instruction\n' >"$CLAUDE_CONFIG_DIR/CLAUDE.md"
+chmod 640 "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+run --dry-run >/dev/null
 [ ! -e "$CODEX_HOME/AGENTS.md" ]
 [ ! -e "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules" ]
 run
@@ -24,42 +25,106 @@ for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_A
     grep -q 'Require separate explicit approval for force-pushing' "$file"
 done
 grep -q 'Claude-only instruction' "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+[ "$(find "$CLAUDE_CONFIG_DIR" -name CLAUDE.md -perm 0640)" = "$CLAUDE_CONFIG_DIR/CLAUDE.md" ]
 cmp "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules" <(printf 'Claude-only instruction\n')
 cp "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$sandbox/first"
 run
 cmp "$sandbox/first" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 
-# User policies override the bundled policy and retain unrelated instructions.
+# custom policies preserve other instructions
 mkdir -p "$XDG_CONFIG_HOME/agents"
-printf 'Custom policy without trailing newline' > "$XDG_CONFIG_HOME/agents/AGENTS.md"
+printf 'Custom policy without trailing newline' >"$XDG_CONFIG_HOME/agents/AGENTS.md"
 run
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do
     grep -qx 'Custom policy without trailing newline' "$file"
-    ! grep -q 'An explicit request IS authorization' "$file"
+    if grep -q 'An explicit request IS authorization' "$file"; then exit 1; fi
 done
-printf 'Explicit policy\n' > "$sandbox/policy.md"
+printf 'Explicit policy\n' >"$sandbox/policy.md"
 run "$sandbox/policy.md"
 grep -qx 'Explicit policy' "$CODEX_HOME/AGENTS.md"
 
-# Legacy rules are automatically replaced, preserving unrelated instructions.
-printf '<!-- BEGIN USER GIT APPROVAL RULES -->\nOld rules\n<!-- END USER GIT APPROVAL RULES -->\nClaude-only instruction\n' > "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+# migrate legacy rules
+printf '<!-- BEGIN USER GIT APPROVAL RULES -->\nOld rules\n<!-- END USER GIT APPROVAL RULES -->\nClaude-only instruction\n' >"$CLAUDE_CONFIG_DIR/CLAUDE.md"
 cp "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$sandbox/legacy"
-run --dry-run > /dev/null
+run --dry-run >/dev/null
 cmp "$sandbox/legacy" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 run
 grep -q 'Claude-only instruction' "$CLAUDE_CONFIG_DIR/CLAUDE.md"
-! grep -q 'Old rules' "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+if grep -q 'Old rules' "$CLAUDE_CONFIG_DIR/CLAUDE.md"; then exit 1; fi
 cp "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$sandbox/before-failure"
-printf '<!-- BEGIN TMUX-TABS SHARED RULES -->\nUnclosed\n' > "$PI_CODING_AGENT_DIR/AGENTS.md"
-if run 2>/dev/null; then echo 'unclosed block should fail' >&2; exit 1; fi
+printf '<!-- BEGIN TMUX-TABS SHARED RULES -->\nUnclosed\n' >"$PI_CODING_AGENT_DIR/AGENTS.md"
+if run 2>/dev/null; then
+    echo 'unclosed block should fail' >&2
+    exit 1
+fi
 cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 rm "$PI_CODING_AGENT_DIR/AGENTS.md"
 ln -s "$sandbox/before-failure" "$PI_CODING_AGENT_DIR/AGENTS.md"
-if run 2>/dev/null; then echo 'symlink should fail' >&2; exit 1; fi
+if run 2>/dev/null; then
+    echo 'symlink should fail' >&2
+    exit 1
+fi
 cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 rm "$PI_CODING_AGENT_DIR/AGENTS.md"
-printf '<!-- BEGIN TMUX-TABS SHARED RULES -->\n' > "$XDG_CONFIG_HOME/agents/AGENTS.md"
-if run 2>/dev/null; then echo 'source markers should fail' >&2; exit 1; fi
-: > "$XDG_CONFIG_HOME/agents/AGENTS.md"
-if run 2>/dev/null; then echo 'empty source should fail' >&2; exit 1; fi
+printf '<!-- BEGIN TMUX-TABS SHARED RULES -->\n' >"$XDG_CONFIG_HOME/agents/AGENTS.md"
+if run 2>/dev/null; then
+    echo 'source markers should fail' >&2
+    exit 1
+fi
+: >"$XDG_CONFIG_HOME/agents/AGENTS.md"
+if run 2>/dev/null; then
+    echo 'empty source should fail' >&2
+    exit 1
+fi
+# reject unsafe backups
+printf 'Replacement policy\n' >"$XDG_CONFIG_HOME/agents/AGENTS.md"
+rm "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules"
+ln -s "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules"
+if run 2>/dev/null; then
+    echo 'backup symlink should fail' >&2
+    exit 1
+fi
+cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+rm "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules"
+
+# inject a one-shot failure after the first replacement
+mkdir -p "$sandbox/bin"
+TABS_TEST_MV=$(command -v mv)
+export TABS_TEST_MV TABS_TEST_FAIL=$sandbox/fail
+cat >"$sandbox/bin/mv" <<'MOCK'
+#!/usr/bin/env bash
+if [ "${!#}" = "$CODEX_HOME/AGENTS.md" ] && [ ! -e "$TABS_TEST_FAIL" ]; then
+    touch "$TABS_TEST_FAIL"
+    exit 1
+fi
+exec "$TABS_TEST_MV" "$@"
+MOCK
+chmod +x "$sandbox/bin/mv"
+export PATH=$sandbox/bin:$PATH
+cp "$CODEX_HOME/AGENTS.md" "$sandbox/codex"
+if run 2>/dev/null; then
+    echo 'rename should fail' >&2
+    exit 1
+fi
+cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+cmp "$sandbox/codex" "$CODEX_HOME/AGENTS.md"
+[ ! -e "$PI_CODING_AGENT_DIR/AGENTS.md" ]
+
+# unchanged destinations survive rollback
+run
+cp "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$sandbox/unchanged"
+printf 'Old codex instructions\n' >"$CODEX_HOME/AGENTS.md"
+rm "$TABS_TEST_FAIL"
+if run 2>/dev/null; then exit 1; fi
+cmp "$sandbox/unchanged" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+
+# rollback removes newly created files too
+rm "$TABS_TEST_FAIL" "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"
+if run 2>/dev/null; then exit 1; fi
+[ ! -e "$CLAUDE_CONFIG_DIR/CLAUDE.md" ]
+[ ! -e "$CODEX_HOME/AGENTS.md" ]
+[ ! -e "$PI_CODING_AGENT_DIR/AGENTS.md" ]
+run
+run
+[ -z "$(find "$HOME" -name '*.rollback.*')" ]
 printf 'shared-rules tests passed\n'

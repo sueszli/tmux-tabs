@@ -53,35 +53,3 @@ update with:
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
-
-
-bundled development guardrails:
-
-    tabs sync-rules --dry-run
-    tabs sync-rules
-
-syncs workflow-approval instructions into the global Claude, Codex and Pi
-instruction files. they apply everywhere, not only inside tmux-tabs.
-installation and updates automatically sync these instructions. launching
-tabs does not rewrite them. the guardrails live in a separate bundled module
-at `~/.local/share/tmux-tabs/guardrails.sh`.
-
-"push" authorizes staging, committing and a normal push without repeated
-consent questions. "make PR" also authorizes creating a PR; "push to PR"
-creates one if missing. unrelated or destructive actions still need explicit
-authorization. native tool/sandbox permission prompts are unchanged.
-
-uses `~/.config/agents/AGENTS.md` (or `$XDG_CONFIG_HOME/agents/AGENTS.md`)
-when present, otherwise a bundled default. pass a file to use another policy:
-
-    tabs sync-rules --dry-run path/to/policy.md
-    tabs sync-rules path/to/policy.md
-
-installation, updates and manual sync replace the managed TMUX-TABS SHARED
-RULES section or legacy USER GIT APPROVAL RULES section automatically.
-they do not wipe whole agent configs or try to remove unmarked custom rules;
-review those yourself if they contradict the bundled policy.
-
-preserves instructions outside its managed section and backs up each existing
-file once as `<file>.before-tabs-rules`. honors CLAUDE_CONFIG_DIR, CODEX_HOME
-and PI_CODING_AGENT_DIR. restart agents after syncing (or `/reload` in Pi).
