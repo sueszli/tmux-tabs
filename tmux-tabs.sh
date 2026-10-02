@@ -390,14 +390,41 @@ render() {
 }
 
 #
-# shared agent rules (explicitly opt-in; never called by the installer)
+# shared agent rules
 #
 
 tabs_sync_rules() (
     set -euo pipefail
     local source_file=${XDG_CONFIG_HOME:-$HOME/.config}/agents/AGENTS.md
-    local dry_run=0 migrate=0 path staged i
+    local dry_run=0 migrate=0 path staged i bundled=''
     local -a paths stages
+    stages=()
+    trap 'for staged in "${stages[@]}"; do rm -f "$staged"; done; [ -z "$bundled" ] || rm -f "$bundled"' EXIT
+    if [ ! -e "$source_file" ]; then
+        bundled=$(mktemp "${TMPDIR:-/tmp}/tabs-policy.XXXXXX")
+        source_file=$bundled
+        cat > "$bundled" <<'POLICY'
+# Git, GitHub and GitLab workflow approvals
+
+Read-only Git, gh and glab commands, fetching, and non-destructive local
+staging and commits do not require confirmation.
+
+Before remote writes, obtain one approval for a clearly scoped workflow,
+identifying the changes, remote, branch and intended actions. An explicit
+user request to push or create a PR/MR authorizes the corresponding workflow,
+including staging, committing, a normal push and creating that PR/MR.
+Approval covers retries of the same operation, not unrelated remote writes.
+Ask again if the scope, remote or branch changes.
+
+Require separate explicit approval for force-pushing, deleting remote
+resources, merging PRs/MRs, publishing releases, changing permissions,
+secrets or CI settings, and destructive local operations that discard work.
+Apply these rules equally to git, gh, glab, API clients and scripts.
+Do not bypass approval by switching tools. Never expose credentials.
+
+These are agent instructions, not an enforced CLI security boundary.
+POLICY
+    fi
     while [ "$#" -gt 0 ]; do
         case $1 in
             --dry-run) dry_run=1 ;;
@@ -421,8 +448,6 @@ tabs_sync_rules() (
     paths=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}/CLAUDE.md"
            "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
            "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md")
-    stages=()
-    trap 'for staged in "${stages[@]}"; do rm -f "$staged"; done' EXIT
     # Render and validate every destination before changing any instruction file.
     for path in "${paths[@]}"; do
         if [ -L "$path" ] || { [ -e "$path" ] && [ ! -f "$path" ]; }; then

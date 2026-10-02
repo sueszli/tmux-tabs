@@ -31,6 +31,7 @@ if ! cmp -s "$tmp" "$target" || [ ! -x "$target" ]; then
     echo "installed $target"
 fi
 BASH_ENV="$target" bash -c tabs_install_hooks
+BASH_ENV="$target" bash -c tabs_sync_rules
 
 #
 # codex shim
