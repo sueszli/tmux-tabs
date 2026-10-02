@@ -68,7 +68,7 @@ load test-helper.sh
     assert_success
     run jq -e '.hooks.Stop[0].hooks[0].command | contains("tabs_agent_hook codex Stop")' "$HOME/.codex/hooks.json"
     assert_success
-    run grep -F 'pi.on("agent_settled"' "$PI_CODING_AGENT_DIR/extensions/tmux-tabs.js"
+    run grep -F '["agent_settled", "Stop"]' "$PI_CODING_AGENT_DIR/extensions/tmux-tabs.js"
     assert_success
     [ ! -s "$TMUX_CALLS" ]
 
