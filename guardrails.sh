@@ -7,6 +7,15 @@ set -euo pipefail
 
 TABS_DEFAULT_POLICY='# Git, GitHub and GitLab workflow approvals
 
+Before EVERY CLI/tool action, identify an exact paragraph or passage from
+the latest user message that directly authorizes that specific action or
+explicitly implies its necessity as a prerequisite of the requested task.
+Keep that quote and the action-to-instruction justification explicit in
+your reasoning; do not substitute your own interpretation for user words.
+If no such passage exists, STOP and ask for explicit approval. A useful,
+conventional, or related action is not necessarily an authorized action.
+This applies to every individual call, not just the start of a workflow.
+
 Before EVERY GitHub CLI (gh) or GitLab CLI (glab) call, including read-only
 calls, reread the latest user message and check whether it explicitly
 authorizes that action or a scoped workflow that necessarily requires it.

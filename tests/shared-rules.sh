@@ -19,23 +19,16 @@ run --dry-run >/dev/null
 [ ! -e "$CODEX_HOME/AGENTS.md" ]
 [ ! -e "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules" ]
 run
+# Verify faithful syncing of the whole policy, not individual prose choices.
+source "$repo/guardrails.sh"
+printf '%s\n' "$TABS_DEFAULT_POLICY" >"$sandbox/expected-policy"
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do
-    grep -q 'Before EVERY GitHub CLI (gh) or GitLab CLI (glab) call' "$file"
-    grep -q 'Read-only CLI calls are not exempt from this check' "$file"
-    grep -q 'Authorization must be a direct instruction, not a question or status check' "$file"
-    grep -q '"Did you push?", "ok did you push?"' "$file"
-    grep -q 'If wording or scope is uncertain, ask rather than assume' "$file"
-    grep -q 'NEVER post any GitHub or GitLab comment without separate explicit user' "$file"
-    grep -q 'comments or posting a review' "$file"
-    grep -q 'NEVER autonomously invent extra actions' "$file"
-    grep -q 'approval; do not execute it first. When uncertain, STOP and ask' "$file"
-    grep -q '"Push", "git push", or "commit and push" authorizes git add' "$file"
-    grep -q 'Necessary scoped CLI checks are included; unrelated CLI calls are not' "$file"
-    grep -q 'An explicit request IS authorization' "$file"
-    grep -q 'if no PR/MR exists, creating one is included' "$file"
-    grep -q 'Require separate explicit approval for force-pushing' "$file"
-    grep -q '"Rebase" authorizes fetching the requested base' "$file"
-    grep -q 'resolving conflicts without another approval question' "$file"
+    awk '
+        /^<!-- BEGIN TMUX-TABS SHARED RULES -->$/ { inside=1; next }
+        /^<!-- END TMUX-TABS SHARED RULES -->$/ { inside=0; next }
+        inside { print }
+    ' "$file" >"$sandbox/actual-policy"
+    cmp "$sandbox/expected-policy" "$sandbox/actual-policy"
 done
 grep -q 'Claude-only instruction' "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 [ "$(find "$CLAUDE_CONFIG_DIR" -name CLAUDE.md -perm 0640)" = "$CLAUDE_CONFIG_DIR/CLAUDE.md" ]
