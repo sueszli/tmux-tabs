@@ -22,23 +22,16 @@ TABS_CLAUDE_EVENTS='[
 # shellcheck disable=SC2016
 TABS_PI_EXTENSION='
 export default function (pi) {
-    if (!process.env.TMUX?.split(",")[0].endsWith("/tabs") || !process.env.TMUX_PANE) return;
-
-    async function update(event, ctx) {
-        if (ctx.mode !== "tui") return;
-        try {
-            await pi.exec("bash", ["-c", '\''source "$1"; tabs_agent_hook pi "$2"'\'',
-                "tmux-tabs", hook, event], { timeout: 3000 });
-        } catch {
-            // status updates must not interrupt the agent.
-        }
-    }
-
-    pi.on("session_start", (_event, ctx) => update("SessionStart", ctx));
-    pi.on("agent_start", (_event, ctx) => update("UserPromptSubmit", ctx));
-    // agent_end can precede retries, compaction and queued follow-ups.
-    pi.on("agent_settled", (_event, ctx) => update("Stop", ctx));
-    pi.on("session_shutdown", (_event, ctx) => update("SessionEnd", ctx));
+    if (!/^[^,]*\/tabs(?:,|$)/.test(process.env.TMUX ?? "") || !process.env.TMUX_PANE) return;
+    const ignore = () => {};
+    // settled excludes pending retries and queued follow-ups
+    for (const [event, state] of [
+        ["session_start", "SessionStart"], ["agent_start", "UserPromptSubmit"],
+        ["agent_settled", "Stop"], ["session_shutdown", "SessionEnd"]
+    ]) pi.on(event, (_, ctx) => ctx.mode === "tui"
+        ? pi.exec("bash", ["-c", '\''source "$1"; tabs_agent_hook pi "$2"'\'',
+            "tmux-tabs", hook, state], { timeout: 3000 }).catch(ignore)
+        : undefined);
 }'
 
 tabs_finish_hook_file() {
@@ -65,31 +58,7 @@ tabs_install_json_hooks() {
     else
         original='{}'
     fi
-    if ! jq --arg agent "$agent" --arg prefix "$prefix" --arg old "$old" --argjson events "$events" '
-        if type != "object" then error("settings must be a JSON object") else . end
-        | .hooks //= {}
-        | if (.hooks | type) != "object" then error("hooks must be a JSON object") else . end
-        | reduce $events[] as $event (.;
-            .hooks[$event[0]] //= []
-            | if (.hooks[$event[0]] | type) != "array" then error("hook event must be a JSON array") else . end
-            | .hooks[$event[0]] |= map(
-                .hooks |= map(select(
-                    (.command // "") as $command
-                    | (($command | gsub("\\\\"; "") | contains($old))
-                       and ($command | endswith(" " + $agent + " " + $event[2]))) | not
-                ))
-                | select(.hooks | length > 0)
-              )
-            | ($prefix + " " + $agent + " " + $event[2] + "\u0027") as $command
-            | if ([.hooks[$event[0]][]? | .hooks[]? | select(.command == $command)] | length) > 0
-              then .
-              else .hooks[$event[0]] += [
-                ({hooks: [{type: "command", command: $command, timeout: 3}]}
-                 + (if $event[1] == null then {} else {matcher: $event[1]} end))
-              ]
-              end
-          )
-    ' <<<"$original" >"$staged"; then
+    if ! jq --arg agent "$agent" --arg prefix "$prefix" --arg old "$old" --argjson events "$events" 'if type != "object" then error("settings must be a JSON object") else . end | .hooks //= {} | if (.hooks | type) != "object" then error("hooks must be a JSON object") else . end | reduce $events[] as $event (.; .hooks[$event[0]] //= [] | if (.hooks[$event[0]] | type) != "array" then error("hook event must be a JSON array") else . end | .hooks[$event[0]] |= map(.hooks |= map(select((.command // "") as $command | (($command | gsub("\\\\"; "") | contains($old)) and ($command | endswith(" " + $agent + " " + $event[2]))) | not)) | select(.hooks | length > 0)) | ($prefix + " " + $agent + " " + $event[2] + "\u0027") as $command | if ([.hooks[$event[0]][]? | .hooks[]? | select(.command == $command)] | length) > 0 then . else .hooks[$event[0]] += [({hooks: [{type: "command", command: $command, timeout: 3}]} + (if $event[1] == null then {} else {matcher: $event[1]} end))] end)' <<<"$original" >"$staged"; then
         rm "$staged"
         return 1
     fi
@@ -162,22 +131,10 @@ tabs_install_hooks() (
             mv "$staged" "$config"
         fi
         # migrate old tabs hooks stored beside inline codex hooks
-        if [ -f "$json" ] && jq -e --arg old "$old" '
-            any(.hooks[][]?.hooks[]?;
-                (.command // "") as $command
-                | ($command | gsub("\\\\"; "") | contains($old)) and ($command | contains(" codex ")))
-        ' "$json" >/dev/null; then
+        if [ -f "$json" ] && jq -e --arg old "$old" 'any(.hooks[][]?.hooks[]?; (.command // "") as $command | ($command | gsub("\\\\"; "") | contains($old)) and ($command | contains(" codex ")))' "$json" >/dev/null; then
             staged=$(mktemp "${json}.XXXXXX")
             cp -p "$json" "$staged"
-            jq --arg old "$old" '
-                .hooks |= with_entries(.value |= map(
-                    .hooks |= map(select(
-                        (.command // "") as $command
-                        | (($command | gsub("\\\\"; "") | contains($old)) and ($command | contains(" codex "))) | not
-                    ))
-                    | select(.hooks | length > 0)
-                ))
-            ' "$json" >"$staged"
+            jq --arg old "$old" '.hooks |= with_entries(.value |= map(.hooks |= map(select((.command // "") as $command | (($command | gsub("\\\\"; "") | contains($old)) and ($command | contains(" codex "))) | not)) | select(.hooks | length > 0)))' "$json" >"$staged"
             if jq -e 'keys == ["hooks"] and ([.hooks[][]?] | length) == 0' "$staged" >/dev/null; then
                 rm "$staged" "$json"
             else
@@ -303,23 +260,7 @@ tab_label() {
     agent=$(tmux -L tabs show-option -p -v -t "$pane" @tabs_agent 2>/dev/null)
     state=$(tmux -L tabs show-option -p -v -t "$pane" @tabs_state 2>/dev/null)
     if [ -z "$agent" ]; then
-        agent=$(ps -e -o pid=,ppid=,comm= | awk -v root="$root" -v fallback="$fallback" '
-        { parent[$1] = $2; command[$1] = $3 }
-        END {
-
-            # find programs descended from the pane shell
-            for (pid in parent) {
-                current = pid
-                while (current != root && current in parent) current = parent[current]
-                if (current == root && command[pid] ~ /(^|\/)(codex|claude)$/) {
-                    sub(/^.*\//, "", command[pid])
-                    print command[pid]
-                    exit
-                }
-            }
-            print fallback
-        }
-    ')
+        agent=$(ps -e -o pid=,ppid=,comm= | awk -v root="$root" -v fallback="$fallback" '{ parent[$1]=$2; command[$1]=$3 } END { for (pid in parent) { current=pid; while (current != root && current in parent) current=parent[current]; if (current == root && command[pid] ~ /(^|\/)(codex|claude)$/) { sub(/^.*\//, "", command[pid]); print command[pid]; exit } } print fallback }')
     fi
     marker='•'
     if [ "$state" = working ] && [ $(($(date +%s) % 2)) -eq 1 ]; then
@@ -328,13 +269,11 @@ tab_label() {
     printf '%s %s\n' "$marker" "$agent"
 }
 
-tmux_config() {
-    # print the config for the tabs server
-    local self
-    self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
+#
+# server config
+#
 
-    cat <<CONF
-set -g prefix None
+TABS_TMUX_CONFIG='set -g prefix None
 set -g base-index 1
 set -g renumber-windows on
 setw -g automatic-rename on
@@ -343,16 +282,16 @@ set -g allow-passthrough on
 # tab bar
 set -g status-position top
 set -g status-interval 1
-set -g status-style 'bg=colour236,fg=colour245'
-set -g window-status-current-style 'bg=colour250,fg=colour236,bold'
-set -g status-left ''
-set -g status-right ' ^T shell  ^W close  ^← ^→ switch '
-set -g window-status-format ' #(BASH_ENV=$self bash -c "tab_label #{pane_pid} #{pane_current_command} #{pane_id}") '
-set -g window-status-current-format ' #(BASH_ENV=$self bash -c "tab_label #{pane_pid} #{pane_current_command} #{pane_id}") '
+set -g status-style '\''bg=colour236,fg=colour245'\''
+set -g window-status-current-style '\''bg=colour250,fg=colour236,bold'\''
+set -g status-left '\'''\''
+set -g status-right '\'' ^T shell  ^W close  ^← ^→ switch '\''
+set -g window-status-format '\'' #(BASH_ENV=@TABS_SELF@ bash -c "tab_label #{pane_pid} #{pane_current_command} #{pane_id}") '\''
+set -g window-status-current-format '\'' #(BASH_ENV=@TABS_SELF@ bash -c "tab_label #{pane_pid} #{pane_current_command} #{pane_id}") '\''
 
 # tab keys
-bind -n C-t new-window -c '#{pane_current_path}'
-bind -n C-n new-window -c '#{pane_current_path}'
+bind -n C-t new-window -c '\''#{pane_current_path}'\''
+bind -n C-n new-window -c '\''#{pane_current_path}'\''
 bind -n C-w kill-window
 bind -n C-Right next-window
 bind -n C-Left previous-window
@@ -360,9 +299,13 @@ bind -n C-f next-window
 bind -n C-b previous-window
 
 # redraw after opening or switching tabs
-set-hook -g after-select-window "run-shell -b \"BASH_ENV=$self bash -c 'render #{pane_id}'\""
-set-hook -g after-new-window "run-shell -b \"BASH_ENV=$self bash -c 'render #{pane_id}'\""
-CONF
+set-hook -g after-select-window "run-shell -b \"BASH_ENV=@TABS_SELF@ bash -c '\''render #{pane_id}'\''\""
+set-hook -g after-new-window "run-shell -b \"BASH_ENV=@TABS_SELF@ bash -c '\''render #{pane_id}'\''\""'
+
+tmux_config() {
+    local self
+    self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
+    printf '%s\n' "${TABS_TMUX_CONFIG//@TABS_SELF@/$self}"
 }
 
 render() {
