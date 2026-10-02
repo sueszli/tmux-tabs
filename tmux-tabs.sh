@@ -4,6 +4,21 @@
 # hook installation
 #
 
+TABS_CLAUDE_EVENTS='[
+    ["SessionStart", "startup|resume", "SessionStart"],
+    ["UserPromptSubmit", null, "UserPromptSubmit"],
+    ["PermissionRequest", null, "PermissionRequest"],
+    ["Notification", "^(permission_prompt|idle_prompt)$", "PermissionRequest"],
+    ["PreToolUse", "^AskUserQuestion$", "PreQuestion"],
+    ["Elicitation", null, "PreQuestion"],
+    ["ElicitationResult", null, "PostQuestion"],
+    ["PostToolUse", null, "PostToolUse"],
+    ["PostToolUseFailure", null, "PostToolUseFailure"],
+    ["Stop", null, "Stop"],
+    ["StopFailure", null, "StopFailure"],
+    ["SessionEnd", null, "SessionEnd"]
+]'
+
 tabs_finish_hook_file() {
     # preserve backups and avoid replacing unchanged hook files
     local staged=$1 path=$2 agent=$3
@@ -114,32 +129,18 @@ tabs_install_hooks() (
         echo 'jq required' >&2
         exit 1
     }
-    local self quoted old prefix claude_events codex_events config json event staged
+    local self quoted old prefix codex_events config json event staged
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
     printf -v quoted '%q' "$self"
     old=${self}-agent-hook
     prefix="BASH_ENV=$quoted bash -c 'tabs_agent_hook"
-    claude_events='[
-      ["SessionStart", "startup|resume", "SessionStart"],
-      ["UserPromptSubmit", null, "UserPromptSubmit"],
-      ["PermissionRequest", null, "PermissionRequest"],
-      ["Notification", "^(permission_prompt|idle_prompt)$", "PermissionRequest"],
-      ["PreToolUse", "^AskUserQuestion$", "PreQuestion"],
-      ["Elicitation", null, "PreQuestion"],
-      ["ElicitationResult", null, "PostQuestion"],
-      ["PostToolUse", null, "PostToolUse"],
-      ["PostToolUseFailure", null, "PostToolUseFailure"],
-      ["Stop", null, "Stop"],
-      ["StopFailure", null, "StopFailure"],
-      ["SessionEnd", null, "SessionEnd"]
-    ]'
     local codex_event_names=(SessionStart UserPromptSubmit PermissionRequest PostToolUse Stop Interrupt SessionEnd)
     codex_events=$(jq -n --args '
         $ARGS.positional | map([., (if . == "SessionStart" then "startup|resume" else null end), .])
     ' "${codex_event_names[@]}")
 
     json=$HOME/.claude/settings.json
-    tabs_install_json_hooks "$json" claude "$claude_events" "$prefix" "$old"
+    tabs_install_json_hooks "$json" claude "$TABS_CLAUDE_EVENTS" "$prefix" "$old"
 
     config=$HOME/.codex/config.toml
     json=$HOME/.codex/hooks.json
@@ -395,7 +396,10 @@ render() {
 
 tabs_sync_rules() {
     local module="${HOME:?}/.local/share/tmux-tabs/guardrails.sh"
-    [ -f "$module" ] || { echo 'Reinstall tabs to install its guardrails module' >&2; return 1; }
+    [ -f "$module" ] || {
+        echo 'Reinstall tabs to install its guardrails module' >&2
+        return 1
+    }
     bash "$module" "$@"
 }
 

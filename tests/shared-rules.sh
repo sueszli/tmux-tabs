@@ -128,5 +128,10 @@ if run 2>/dev/null; then exit 1; fi
 [ ! -e "$PI_CODING_AGENT_DIR/AGENTS.md" ]
 run
 run
-[ -z "$(find "$HOME" -name '*.rollback.*')" ]
+[ -z "$(find "$HOME" -name '*.tabs.*')" ]
+
+# missing explicit policies must not install defaults
+cp "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$sandbox/unchanged"
+if run "$sandbox/missing.md" 2>/dev/null; then exit 1; fi
+cmp "$sandbox/unchanged" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 printf 'shared-rules tests passed\n'
