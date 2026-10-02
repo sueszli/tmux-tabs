@@ -11,7 +11,7 @@ setup() {
     export TMUX_STATES=idle
     mkdir -p "$HOME" "$BATS_TEST_TMPDIR/bin"
     : >"$TMUX_CALLS"
-    cp "$BATS_TEST_DIRNAME/fixtures/tmux" "$BATS_TEST_TMPDIR/bin/tmux"
+    cp "$BATS_TEST_DIRNAME/tmux-stub.sh" "$BATS_TEST_TMPDIR/bin/tmux"
     chmod +x "$BATS_TEST_TMPDIR/bin/tmux"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
     source "$PROJECT_ROOT/tmux-tabs.sh"

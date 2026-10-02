@@ -5,13 +5,13 @@ help: ## show available targets
 		awk 'BEGIN {FS = ":.*## "} {printf "  %-20s %s\n", $$1, $$2}'
 
 # Bats files use a test DSL, so syntax-check ordinary Bash files separately.
-BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard scripts/*.sh tests/*.bash tests/fixtures/*)
+BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh tests/*.bash)
 SHELL_FILES := $(BASH_FILES) $(wildcard tests/*.bats)
 BATS := .tools/bats-core/bin/bats
 
 .PHONY: deps
 deps: ## install pinned Bats and assertion libraries locally
-	bash scripts/bootstrap-tests.sh
+	bash tests/bootstrap.sh
 
 .PHONY: test
 test: ## run isolated Bash tests (run make deps first)
