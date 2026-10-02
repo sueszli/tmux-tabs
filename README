@@ -8,6 +8,8 @@ tmux reduced to browser-style tabs.
 run many coding agents at once and keep them alive across ssh disconnects.
 works on mac and linux with bash, curl and tmux 3.0 or newer.
 
+vibe coded slop. please don't trust the code.
+
 
 ┌──────────────────────────────────────────────────────────────────┐
 │ 1 zsh   2 codex   3 pi  [4 claude]     ^T shell  ^W close  ^← ^→ │
