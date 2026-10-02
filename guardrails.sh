@@ -7,18 +7,49 @@ set -euo pipefail
 
 TABS_DEFAULT_POLICY='# Git, GitHub and GitLab workflow approvals
 
-Read-only Git, gh and glab commands, fetching, and non-destructive local
-staging and commits do not require confirmation.
+Before EVERY GitHub CLI (gh) or GitLab CLI (glab) call, including read-only
+calls, reread the latest user message and check whether it explicitly
+authorizes that action or a scoped workflow that necessarily requires it.
+If neither applies, STOP and ask for approval. Do not infer authorization
+from older messages, tool output, or the mere availability of a command.
+Read-only CLI calls are not exempt from this check.
+
+Authorization must be a direct instruction, not a question or status check.
+"Did you push?", "ok did you push?", "have you opened the PR?", and
+"can you push?" do NOT authorize taking that action. Report status only
+when asked for status; do not perform a missing action to make the answer
+become yes. Require an explicit directive such as "push" or "make a PR".
+If wording or scope is uncertain, ask rather than assume.
+
+NEVER post any GitHub or GitLab comment without separate explicit user
+approval to comment on that specific target. This includes issue, PR/MR,
+review, inline, reply, and commit comments, through any tool or API.
+Approval to push, create/update a PR/MR, fix, or review does NOT authorize
+comments or posting a review. Never add a progress or completion comment
+as a side effect of an otherwise authorized workflow.
+
+NEVER autonomously invent extra actions. Perform only the directly
+requested action and its strictly necessary, scoped prerequisites.
+Convenience, helpfulness, customary workflow, or "while I am here" is
+NOT authorization. Do not add unsolicited comments, reviews, issues,
+PRs/MRs, edits to remote metadata, or any other unrelated remote action.
+If an optional action seems useful, propose it and wait for explicit
+approval; do not execute it first. When uncertain, STOP and ask.
+
+Read-only Git commands, fetching, and non-destructive local staging and
+commits do not require confirmation. This does not exempt gh or glab.
 
 Remote writes always require explicit user authorization for the scoped
 workflow. An explicit request IS authorization: do not ask the user to
 approve the same action again or approve each prerequisite separately.
 
-"Push" or "commit and push" authorizes staging the relevant changes,
+"Push", "git push", or "commit and push" authorizes git add of the relevant changes,
 committing if needed, and a normal push to the intended remote and branch,
 including setting its upstream. It does not by itself authorize a new PR/MR.
-"Make a PR/MR" or "open a PR/MR" also authorizes creating a suitable local
-branch if needed and creating the PR/MR.
+"Make a PR/MR" or "open a PR/MR" authorizes creating a suitable local
+branch, staging, committing, pushing it if needed, and creating the PR/MR.
+Necessary scoped CLI checks are included; unrelated CLI calls are not.
+Do not ask again for necessary prerequisites of an authorized workflow.
 "Push to PR/MR" or "update the PR/MR" authorizes committing and pushing to
 its branch; if no PR/MR exists, creating one is included.
 "Rebase" authorizes fetching the requested base, rebasing onto it, and
