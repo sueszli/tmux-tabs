@@ -21,7 +21,7 @@ TABS_CLAUDE_EVENTS='[
 
 tabs_finish_hook_file() {
     # preserve backups and avoid replacing unchanged hook files
-    local staged=$1 path=$2 agent=$3
+    local staged=$1 path=$2
     if [ -f "$path" ] && cmp -s "$staged" "$path"; then
         rm "$staged"
         return 0
@@ -30,7 +30,6 @@ tabs_finish_hook_file() {
         cp -p "$path" "${path}.before-tabs"
     fi
     mv "$staged" "$path"
-    printf 'hooks: %s %s\n' "$agent" "$path"
 }
 
 tabs_install_json_hooks() {
@@ -126,7 +125,7 @@ tabs_install_hooks() (
     # configure user hooks for claude code, codex cli and pi
     set -euo pipefail
     command -v jq >/dev/null || {
-        echo 'jq required' >&2
+        printf 'jq required\n' >&2
         exit 1
     }
     local self quoted old prefix codex_events config json event staged
@@ -162,7 +161,6 @@ tabs_install_hooks() (
                 printf '# end tabs-agent-status\n'
             } >>"$staged"
             mv "$staged" "$config"
-            printf 'hooks: codex %s\n' "$config"
         fi
         # migrate old tabs hooks stored beside inline codex hooks
         if [ -f "$json" ] && jq -e --arg old "$old" '
@@ -397,7 +395,7 @@ render() {
 tabs_sync_rules() {
     local module="${HOME:?}/.local/share/tmux-tabs/guardrails.sh"
     [ -f "$module" ] || {
-        echo 'Reinstall tabs to install its guardrails module' >&2
+        printf 'Reinstall tabs to install its guardrails module\n' >&2
         return 1
     }
     bash "$module" "$@"
@@ -425,7 +423,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         fi
     done < <(type -a -p codex)
     [ -n "$real" ] || {
-        echo 'codex not found' >&2
+        printf 'codex not found\n' >&2
         exit 127
     }
     for arg in "$@"; do

@@ -56,26 +56,26 @@ if grep -q 'Old rules' "$CLAUDE_CONFIG_DIR/CLAUDE.md"; then exit 1; fi
 cp "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$sandbox/before-failure"
 printf '<!-- BEGIN TMUX-TABS SHARED RULES -->\nUnclosed\n' >"$PI_CODING_AGENT_DIR/AGENTS.md"
 if run 2>/dev/null; then
-    echo 'unclosed block should fail' >&2
+    printf 'unclosed block should fail\n' >&2
     exit 1
 fi
 cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 rm "$PI_CODING_AGENT_DIR/AGENTS.md"
 ln -s "$sandbox/before-failure" "$PI_CODING_AGENT_DIR/AGENTS.md"
 if run 2>/dev/null; then
-    echo 'symlink should fail' >&2
+    printf 'symlink should fail\n' >&2
     exit 1
 fi
 cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 rm "$PI_CODING_AGENT_DIR/AGENTS.md"
 printf '<!-- BEGIN TMUX-TABS SHARED RULES -->\n' >"$XDG_CONFIG_HOME/agents/AGENTS.md"
 if run 2>/dev/null; then
-    echo 'source markers should fail' >&2
+    printf 'source markers should fail\n' >&2
     exit 1
 fi
 : >"$XDG_CONFIG_HOME/agents/AGENTS.md"
 if run 2>/dev/null; then
-    echo 'empty source should fail' >&2
+    printf 'empty source should fail\n' >&2
     exit 1
 fi
 # reject unsafe backups
@@ -83,7 +83,7 @@ printf 'Replacement policy\n' >"$XDG_CONFIG_HOME/agents/AGENTS.md"
 rm "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules"
 ln -s "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules"
 if run 2>/dev/null; then
-    echo 'backup symlink should fail' >&2
+    printf 'backup symlink should fail\n' >&2
     exit 1
 fi
 cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
@@ -105,7 +105,7 @@ chmod +x "$sandbox/bin/mv"
 export PATH=$sandbox/bin:$PATH
 cp "$CODEX_HOME/AGENTS.md" "$sandbox/codex"
 if run 2>/dev/null; then
-    echo 'rename should fail' >&2
+    printf 'rename should fail\n' >&2
     exit 1
 fi
 cmp "$sandbox/before-failure" "$CLAUDE_CONFIG_DIR/CLAUDE.md"

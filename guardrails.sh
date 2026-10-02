@@ -78,18 +78,18 @@ TABS_RULES_RENDER='
 
 tabs_rules_regular() {
     if [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }; then
-        echo "Refusing symlink or non-regular file: $1" >&2
+        printf 'Refusing symlink or non-regular file: %s\n' "$1" >&2
         return 1
     fi
 }
 
 tabs_rules_policy() {
     [ -s "$1" ] && [ -f "$1" ] || {
-        echo "Create a nonempty shared policy first: $1" >&2
+        printf 'Create a nonempty shared policy first: %s\n' "$1" >&2
         return 1
     }
     if grep -Eq '^<!-- (BEGIN|END) (TMUX-TABS SHARED RULES|USER GIT APPROVAL RULES) -->$' "$1"; then
-        echo 'Shared policy must not contain managed-section markers' >&2
+        printf '%s\n' 'Shared policy must not contain managed-section markers' >&2
         return 1
     fi
 }
@@ -99,7 +99,7 @@ tabs_rules_render() {
     tabs_rules_regular "$2"
     [ ! -f "$2" ] || input=$2
     awk -v policy="$1" "$TABS_RULES_RENDER" "$input" >"$3" || {
-        echo "Invalid/duplicate managed guardrail markers in $2" >&2
+        printf 'Invalid/duplicate managed guardrail markers in %s\n' "$2" >&2
         return 1
     }
 }
@@ -127,7 +127,7 @@ tabs_rules_stage() {
 tabs_rules_restore() {
     if [ -f "$1/original" ]; then
         mv -f "$1/original" "$2" || {
-            echo "Rollback failed; recover $2 from $1/original" >&2
+            printf 'Rollback failed; recover %s from %s/original\n' "$2" "$1" >&2
             return 1
         }
     else
@@ -167,11 +167,11 @@ tabs_sync_rules() (
             --dry-run) dry_run=1 ;;
             --migrate-git-rules) : ;; # legacy option
             --help)
-                echo 'Usage: tabs sync-rules [--dry-run] [FILE]'
+                printf 'Usage: tabs sync-rules [--dry-run] [FILE]\n'
                 return 0
                 ;;
             --*)
-                echo "Unknown option: $1" >&2
+                printf 'Unknown option: %s\n' "$1" >&2
                 return 1
                 ;;
             *)
@@ -188,7 +188,7 @@ tabs_sync_rules() (
     if [ ! -e "$policy" ]; then
         # only the default path may fall back to bundled rules
         [ "$explicit" = 0 ] || {
-            echo "Policy not found: $policy" >&2
+            printf 'Policy not found: %s\n' "$policy" >&2
             return 1
         }
         policy=$workspace/policy
@@ -216,9 +216,6 @@ tabs_sync_rules() (
         mv -f "$stage/new" "${paths[$i]}"
     done
     complete=1
-    for i in "${!paths[@]}"; do
-        [ ! -f "$workspace/$i.stage" ] || printf 'rules: %s\n' "${paths[$i]}"
-    done
 )
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
