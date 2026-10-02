@@ -23,6 +23,8 @@ for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_A
     grep -q 'An explicit request IS authorization' "$file"
     grep -q 'if no PR/MR exists, creating one is included' "$file"
     grep -q 'Require separate explicit approval for force-pushing' "$file"
+    grep -q '"Rebase" authorizes fetching the requested base' "$file"
+    grep -q 'resolving conflicts without another approval question' "$file"
 done
 grep -q 'Claude-only instruction' "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 [ "$(find "$CLAUDE_CONFIG_DIR" -name CLAUDE.md -perm 0640)" = "$CLAUDE_CONFIG_DIR/CLAUDE.md" ]

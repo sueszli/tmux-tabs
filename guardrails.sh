@@ -54,6 +54,10 @@ including setting its upstream. It does not by itself authorize a new PR/MR.
 branch if needed and creating the PR/MR.
 "Push to PR/MR" or "update the PR/MR" authorizes committing and pushing to
 its branch; if no PR/MR exists, creating one is included.
+"Rebase" authorizes fetching the requested base, rebasing onto it, and
+resolving conflicts without another approval question. Preserve unrelated
+work. It does not authorize force-pushing or discarding work. An explicit
+request for a higher-risk action is its separate approval; do not ask again.
 
 Before an authorized remote write, briefly state what will be affected,
 then proceed without another consent question. Ask a focused clarification
