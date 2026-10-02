@@ -19,12 +19,16 @@ run --dry-run >/dev/null
 [ ! -e "$CODEX_HOME/AGENTS.md" ]
 [ ! -e "$CLAUDE_CONFIG_DIR/CLAUDE.md.before-tabs-rules" ]
 run
+# verify faithful syncing of the whole policy, not individual prose choices
+source "$repo/guardrails.sh"
+printf '%s\n' "$TABS_DEFAULT_POLICY" >"$sandbox/expected-policy"
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do
-    grep -q 'An explicit request IS authorization' "$file"
-    grep -q 'if no PR/MR exists, creating one is included' "$file"
-    grep -q 'Require separate explicit approval for force-pushing' "$file"
-    grep -q '"Rebase" authorizes fetching the requested base' "$file"
-    grep -q 'resolving conflicts without another approval question' "$file"
+    awk '
+        /^<!-- BEGIN TMUX-TABS SHARED RULES -->$/ { inside=1; next }
+        /^<!-- END TMUX-TABS SHARED RULES -->$/ { inside=0; next }
+        inside { print }
+    ' "$file" >"$sandbox/actual-policy"
+    cmp "$sandbox/expected-policy" "$sandbox/actual-policy"
 done
 grep -q 'Claude-only instruction' "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 [ "$(find "$CLAUDE_CONFIG_DIR" -name CLAUDE.md -perm 0640)" = "$CLAUDE_CONFIG_DIR/CLAUDE.md" ]
