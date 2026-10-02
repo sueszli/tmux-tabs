@@ -390,12 +390,111 @@ render() {
 }
 
 #
+# shared agent rules (explicitly opt-in; never called by the installer)
+#
+
+tabs_sync_rules() (
+    set -euo pipefail
+    local source_file=${XDG_CONFIG_HOME:-$HOME/.config}/agents/AGENTS.md
+    local dry_run=0 migrate=0 path staged i
+    local -a paths stages
+    while [ "$#" -gt 0 ]; do
+        case $1 in
+            --dry-run) dry_run=1 ;;
+            --migrate-git-rules) migrate=1 ;;
+            --help)
+                printf 'Usage: tabs sync-rules [--dry-run] [--migrate-git-rules] [FILE]\n'
+                return 0 ;;
+            --*) echo "Unknown option: $1" >&2; return 1 ;;
+            *) source_file=$1 ;;
+        esac
+        shift
+    done
+    [ -s "$source_file" ] && [ -f "$source_file" ] || {
+        echo "Create a nonempty shared policy first: $source_file" >&2
+        return 1
+    }
+    if grep -Eq '^<!-- (BEGIN|END) (TMUX-TABS SHARED RULES|USER GIT APPROVAL RULES) -->$' "$source_file"; then
+        echo 'Shared policy must not contain managed-section markers' >&2
+        return 1
+    fi
+    paths=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}/CLAUDE.md"
+           "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
+           "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/AGENTS.md")
+    stages=()
+    trap 'for staged in "${stages[@]}"; do rm -f "$staged"; done' EXIT
+    # Render and validate every destination before changing any instruction file.
+    for path in "${paths[@]}"; do
+        if [ -L "$path" ] || { [ -e "$path" ] && [ ! -f "$path" ]; }; then
+            echo "Refusing symlink or non-regular destination: $path" >&2
+            return 1
+        fi
+        staged=$(mktemp "${TMPDIR:-/tmp}/tabs-rules.XXXXXX")
+        stages+=("$staged")
+        awk -v policy="$source_file" -v migrate="$migrate" '
+            function emit( line) {
+                print "<!-- BEGIN TMUX-TABS SHARED RULES -->"
+                while ((getline line < policy) > 0) print line
+                close(policy)
+                print "<!-- END TMUX-TABS SHARED RULES -->"
+            }
+            /^<!-- BEGIN (TMUX-TABS SHARED RULES|USER GIT APPROVAL RULES) -->$/ {
+                if (inside || seen++) { bad=1; exit 1 }
+                if ($0 ~ /USER GIT/ && !migrate) { bad=1; exit 1 }
+                expected=$0; sub(/BEGIN/, "END", expected)
+                inside=1; emit(); next
+            }
+            /^<!-- END (TMUX-TABS SHARED RULES|USER GIT APPROVAL RULES) -->$/ {
+                if (!inside || $0 != expected) { bad=1; exit 1 }
+                inside=0; next
+            }
+            !inside { print }
+            END {
+                if (bad || inside) exit 1
+                if (!seen) { if (NR) print ""; emit() }
+            }
+        ' "$(if [ -f "$path" ]; then printf '%s' "$path"; else printf /dev/null; fi)" > "$staged" || {
+            echo "Invalid/duplicate markers in $path, or legacy rules require --migrate-git-rules" >&2
+            return 1
+        }
+    done
+    for i in "${!paths[@]}"; do
+        path=${paths[$i]}
+        staged=${stages[$i]}
+        if [ -f "$path" ] && cmp -s "$path" "$staged"; then continue; fi
+        if [ "$dry_run" = 1 ]; then
+            diff -u "$(if [ -f "$path" ]; then printf '%s' "$path"; else printf /dev/null; fi)" "$staged" || [ "$?" = 1 ]
+            printf 'would sync: %s\n' "$path"
+            continue
+        fi
+        mkdir -p "${path%/*}"
+        if [ -f "$path" ]; then
+            [ -e "${path}.before-tabs-rules" ] || cp -p "$path" "${path}.before-tabs-rules"
+        fi
+        # Stage beside the destination for an atomic rename, preserving its mode.
+        local adjacent
+        adjacent=$(mktemp "${path}.XXXXXX")
+        stages+=("$adjacent")
+        if [ -f "$path" ]; then cp -p "$path" "$adjacent"; fi
+        cp "$staged" "$adjacent"
+        mv "$adjacent" "$path"
+        printf 'rules: %s\n' "$path"
+    done
+)
+
+
+#
 # entry point
 #
 
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     if [ "${0##*/}" != codex ]; then
+        if [ "${1:-}" = sync-rules ]; then
+            shift
+            tabs_sync_rules "$@"
+            exit $?
+        fi
         exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
     fi
     real=''
