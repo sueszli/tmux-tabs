@@ -4,23 +4,43 @@ help: ## show available targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*## "} {printf "  %-20s %s\n", $$1, $$2}'
 
+# Bats files use a test DSL, so syntax-check ordinary Bash files separately.
+BASH_FILES := tmux-tabs.sh install.sh update.sh $(wildcard scripts/*.sh tests/*.bash tests/fixtures/*)
+SHELL_FILES := $(BASH_FILES) $(wildcard tests/*.bats)
+BATS := .tools/bats-core/bin/bats
+
+.PHONY: deps
+deps: ## install pinned Bats and assertion libraries locally
+	bash scripts/bootstrap-tests.sh
+
+.PHONY: test
+test: ## run isolated Bash tests (run make deps first)
+	@test -x "$(BATS)" || { echo 'Run make deps first' >&2; exit 1; }
+	@command -v jq >/dev/null || { echo 'jq required' >&2; exit 1; }
+	$(BATS) tests
+
+.PHONY: check
+check: lint test ## run all checks without modifying files
+
 .PHONY: fmt
 fmt: ## format bash files in place
 	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
-	shfmt -i 4 -ci -w tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
+	shfmt -ln bash -i 4 -ci -w $(BASH_FILES)
+	shfmt -ln bats -i 4 -ci -w $(wildcard tests/*.bats)
 
 .PHONY: lint
 lint: ## run shellcheck, syntax and formatting checks
 	@command -v shellcheck >/dev/null || { echo 'ShellCheck required' >&2; exit 1; }
 	@command -v shfmt >/dev/null || { echo 'shfmt required' >&2; exit 1; }
-	@for file in tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh); do bash -n "$$file" || exit; done
-	shellcheck tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
-	shfmt -i 4 -ci -d tmux-tabs.sh install.sh update.sh $(wildcard tests/*.sh)
+	@for file in $(BASH_FILES); do bash -n "$$file" || exit; done
+	shellcheck -x $(SHELL_FILES)
+	shfmt -ln bash -i 4 -ci -d $(BASH_FILES)
+	shfmt -ln bats -i 4 -ci -d $(wildcard tests/*.bats)
 
 .PHONY: precommit
-precommit: ## format files, then run lint checks
+precommit: ## format files, then run lint and tests
 	$(MAKE) fmt
-	$(MAKE) lint
+	$(MAKE) check
 
 .PHONY: precommit-hook
 precommit-hook: ## install an optional local pre-commit hook

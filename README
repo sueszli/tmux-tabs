@@ -53,3 +53,34 @@ update with:
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
+
+
+development:
+
+    make deps       # fetch pinned Bats-core, bats-support and bats-assert
+    make test       # run the Bash test suite; requires jq
+    make fmt        # format Bash and Bats files; requires shfmt
+    make lint       # syntax, ShellCheck and formatting checks
+    make check      # lint + tests, without modifying files
+    make precommit  # format, then run all checks
+
+Bats and its assertion helpers live in .tools/ (gitignored). No sudo or
+runtime dependency is added. make deps requires git and network access;
+subsequent test runs work offline. Install ShellCheck and shfmt with your
+package manager (for example, brew install shellcheck shfmt on macOS).
+
+Tests live in tests/*.bats. Shared setup in tests/test_helper.bash loads
+bats-assert, sources tmux-tabs.sh, and creates a temporary HOME for each
+test. A PATH-level tmux stub records calls instead of touching real sessions.
+Use `run command`, `assert_success`, `assert_failure`, and `assert_output`
+to test behavior. Bats runs commands under `run` in a subshell: inspect
+files or captured output rather than expecting variable changes to persist.
+
+To run a subset:
+
+    .tools/bats-core/bin/bats tests/hooks.bats
+    .tools/bats-core/bin/bats --filter 'session start' tests
+
+Keep sourcing tmux-tabs.sh side-effect-free and add regression tests when
+changing hooks or status transitions. Helper libraries are development-only;
+the installed script remains standalone.
