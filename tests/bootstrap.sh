@@ -4,7 +4,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 command -v git >/dev/null || {
-    echo 'git required' >&2
+    printf 'git required\n' >&2
     exit 1
 }
 mkdir -p "$root/.tools"

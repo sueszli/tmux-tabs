@@ -4,9 +4,24 @@
 # hook installation
 #
 
+TABS_CLAUDE_EVENTS='[
+    ["SessionStart", "startup|resume", "SessionStart"],
+    ["UserPromptSubmit", null, "UserPromptSubmit"],
+    ["PermissionRequest", null, "PermissionRequest"],
+    ["Notification", "^(permission_prompt|idle_prompt)$", "PermissionRequest"],
+    ["PreToolUse", "^AskUserQuestion$", "PreQuestion"],
+    ["Elicitation", null, "PreQuestion"],
+    ["ElicitationResult", null, "PostQuestion"],
+    ["PostToolUse", null, "PostToolUse"],
+    ["PostToolUseFailure", null, "PostToolUseFailure"],
+    ["Stop", null, "Stop"],
+    ["StopFailure", null, "StopFailure"],
+    ["SessionEnd", null, "SessionEnd"]
+]'
+
 tabs_finish_hook_file() {
     # preserve backups and avoid replacing unchanged hook files
-    local staged=$1 path=$2 agent=$3
+    local staged=$1 path=$2
     if [ -f "$path" ] && cmp -s "$staged" "$path"; then
         rm "$staged"
         return 0
@@ -15,7 +30,6 @@ tabs_finish_hook_file() {
         cp -p "$path" "${path}.before-tabs"
     fi
     mv "$staged" "$path"
-    printf 'hooks: %s %s\n' "$agent" "$path"
 }
 
 tabs_install_json_hooks() {
@@ -111,35 +125,21 @@ tabs_install_hooks() (
     # configure user hooks for claude code, codex cli and pi
     set -euo pipefail
     command -v jq >/dev/null || {
-        echo 'jq required' >&2
+        printf 'jq required\n' >&2
         exit 1
     }
-    local self quoted old prefix claude_events codex_events config json event staged
+    local self quoted old prefix codex_events config json event staged
     self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")
     printf -v quoted '%q' "$self"
     old=${self}-agent-hook
     prefix="BASH_ENV=$quoted bash -c 'tabs_agent_hook"
-    claude_events='[
-      ["SessionStart", "startup|resume", "SessionStart"],
-      ["UserPromptSubmit", null, "UserPromptSubmit"],
-      ["PermissionRequest", null, "PermissionRequest"],
-      ["Notification", "^(permission_prompt|idle_prompt)$", "PermissionRequest"],
-      ["PreToolUse", "^AskUserQuestion$", "PreQuestion"],
-      ["Elicitation", null, "PreQuestion"],
-      ["ElicitationResult", null, "PostQuestion"],
-      ["PostToolUse", null, "PostToolUse"],
-      ["PostToolUseFailure", null, "PostToolUseFailure"],
-      ["Stop", null, "Stop"],
-      ["StopFailure", null, "StopFailure"],
-      ["SessionEnd", null, "SessionEnd"]
-    ]'
     local codex_event_names=(SessionStart UserPromptSubmit PermissionRequest PostToolUse Stop Interrupt SessionEnd)
     codex_events=$(jq -n --args '
         $ARGS.positional | map([., (if . == "SessionStart" then "startup|resume" else null end), .])
     ' "${codex_event_names[@]}")
 
     json=$HOME/.claude/settings.json
-    tabs_install_json_hooks "$json" claude "$claude_events" "$prefix" "$old"
+    tabs_install_json_hooks "$json" claude "$TABS_CLAUDE_EVENTS" "$prefix" "$old"
 
     config=$HOME/.codex/config.toml
     json=$HOME/.codex/hooks.json
@@ -161,7 +161,6 @@ tabs_install_hooks() (
                 printf '# end tabs-agent-status\n'
             } >>"$staged"
             mv "$staged" "$config"
-            printf 'hooks: codex %s\n' "$config"
         fi
         # migrate old tabs hooks stored beside inline codex hooks
         if [ -f "$json" ] && jq -e --arg old "$old" '
@@ -390,12 +389,30 @@ render() {
 }
 
 #
+# shared agent rules
+#
+
+tabs_sync_rules() {
+    local module="${HOME:?}/.local/share/tmux-tabs/guardrails.sh"
+    [ -f "$module" ] || {
+        printf 'Reinstall tabs to install its guardrails module\n' >&2
+        return 1
+    }
+    bash "$module" "$@"
+}
+
+#
 # entry point
 #
 
 # tmux callbacks source the functions from this file
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     if [ "${0##*/}" != codex ]; then
+        if [ "${1:-}" = sync-rules ]; then
+            shift
+            tabs_sync_rules "$@"
+            exit $?
+        fi
         exec tmux -L tabs -f <(tmux_config) new-session -A -s tabs
     fi
     real=''
@@ -406,7 +423,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         fi
     done < <(type -a -p codex)
     [ -n "$real" ] || {
-        echo 'codex not found' >&2
+        printf 'codex not found\n' >&2
         exit 127
     }
     for arg in "$@"; do

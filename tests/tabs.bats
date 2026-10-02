@@ -11,12 +11,12 @@ load test-helper.sh
 }
 
 @test "JSON hooks preserve settings and unrelated hooks, and back up the original" {
-    printf '%s\n' '{"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo keep"}]}]}}' >"$HOME/settings.json"
+    printf '%s\n' '{"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"true"}]}]}}' >"$HOME/settings.json"
     cp "$HOME/settings.json" "$BATS_TEST_TMPDIR/original"
 
     run install_json_hooks
     assert_success
-    run jq -e '.theme == "dark" and .hooks.Stop[0].hooks[0].command == "echo keep" and (.hooks.Stop | length) == 2 and .hooks.SessionStart[0].matcher == "startup|resume"' "$HOME/settings.json"
+    run jq -e '.theme == "dark" and .hooks.Stop[0].hooks[0].command == "true" and (.hooks.Stop | length) == 2 and .hooks.SessionStart[0].matcher == "startup|resume"' "$HOME/settings.json"
     assert_success
     run cmp "$BATS_TEST_TMPDIR/original" "$HOME/settings.json.before-tabs"
     assert_success
@@ -54,10 +54,10 @@ load test-helper.sh
 }
 
 @test "legacy hooks are replaced while unrelated commands remain" {
-    printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"command":"/old/tabs-agent-hook claude Stop"},{"command":"echo keep"}]}]}}' >"$HOME/settings.json"
+    printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"command":"/old/tabs-agent-hook claude Stop"},{"command":"true"}]}]}}' >"$HOME/settings.json"
     run install_json_hooks
     assert_success
-    run jq -e '[.hooks.Stop[].hooks[].command] | length == 2 and index("echo keep") != null and index("/old/tabs-agent-hook claude Stop") == null' "$HOME/settings.json"
+    run jq -e '[.hooks.Stop[].hooks[].command] | length == 2 and index("true") != null and index("/old/tabs-agent-hook claude Stop") == null' "$HOME/settings.json"
     assert_success
 }
 
