@@ -47,3 +47,24 @@ for shim in "${target%/*}/codex" "$HOME/bin/codex"; do
         ln -s "$target" "$shim"
     fi
 done
+
+case ${SHELL:-} in
+    */zsh | zsh) rcs=("${ZDOTDIR:-$HOME}/.zshrc") ;;
+    */bash | bash)
+        for rc in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+            [ ! -f "$rc" ] || break
+        done
+        rcs=("$HOME/.bashrc" "$rc")
+        ;;
+    *) exit 0 ;;
+esac
+shim=$module_dir/codex
+[ "$shim" -ef "$target" ] || ln -s "$target" "$shim"
+printf -v quoted '%q' "$shim"
+printf -v alias_command 'alias codex=%q' "$quoted"
+for rc in "${rcs[@]}"; do
+    if ! grep -Fxq "$alias_command" "$rc" 2>/dev/null; then
+        [ ! -f "$rc" ] || [ -e "$rc.before-tabs" ] || cp -p "$rc" "$rc.before-tabs"
+        printf '\n%s\n' "$alias_command" >>"$rc"
+    fi
+done

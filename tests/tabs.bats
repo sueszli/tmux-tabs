@@ -2,6 +2,28 @@
 
 load test-helper.sh
 
+@test "Codex shim disables the daemon in tabs and preserves the pane environment" {
+    mkdir -p "$HOME/.local/bin"
+    ln -s "$PROJECT_ROOT/tmux-tabs.sh" "$HOME/.local/bin/codex"
+    cat >"$BATS_TEST_TMPDIR/bin/codex" <<'MOCK'
+#!/usr/bin/env bash
+printf '%s\n' "$TMUX_PANE" "$@"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/bin/codex"
+    local pane
+    for pane in %7 %8; do
+        run env TMUX_PANE="$pane" "$HOME/.local/bin/codex" 'hello world'
+        assert_success
+        assert_output "$pane
+--no-daemon
+hello world"
+    done
+    run env TMUX=/tmp/other,123,0 "$HOME/.local/bin/codex" 'hello world'
+    assert_success
+    assert_output '%7
+hello world'
+}
+
 @test "sourcing the script has no tmux or installation side effects" {
     run bash -c 'source "$1"' bash "$PROJECT_ROOT/tmux-tabs.sh"
     assert_success
@@ -177,12 +199,20 @@ load test-helper.sh
 
 @test "feedback from any pane highlights its window" {
     export TMUX_STATES=$'working\nfeedback\nidle'
-    run tabs_agent_hook claude Stop
-    assert_success
-    run grep -Fx -- '-L tabs set-option -w -t @1 window-status-style bg=colour34,fg=colour232' "$TMUX_CALLS"
-    assert_success
-    run grep -Fx -- '-L tabs set-option -w -t @1 window-status-current-style bg=colour34,fg=colour232,bold' "$TMUX_CALLS"
-    assert_success
+    local agent
+    for agent in claude codex pi; do
+        : >"$TMUX_CALLS"
+        run tabs_agent_hook "$agent" Stop
+        assert_success
+        run grep -Fx -- "-L tabs set-option -p -t %7 @tabs_agent $agent" "$TMUX_CALLS"
+        assert_success
+        run grep -Fx -- '-L tabs set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
+        assert_success
+        run grep -Fx -- '-L tabs set-option -w -t @1 window-status-style bg=colour34,fg=colour232' "$TMUX_CALLS"
+        assert_success
+        run grep -Fx -- '-L tabs set-option -w -t @1 window-status-current-style bg=colour34,fg=colour232,bold' "$TMUX_CALLS"
+        assert_success
+    done
 }
 
 @test "windows without feedback have their local styles cleared" {
