@@ -126,6 +126,7 @@ load test-helper.sh
     for agent in claude codex pi; do
         run tabs_agent_hook "$agent" Stop
         assert_failure
+        assert_output ''
     done
     run grep -F 'set-option' "$TMUX_CALLS"
     assert_failure

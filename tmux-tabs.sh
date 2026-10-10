@@ -168,7 +168,7 @@ tabs_agent_hook() {
             SessionEnd | SessionStart | Stop | StopFailure | Interrupt | PermissionRequest | PreQuestion | UserPromptSubmit | PostToolUse | PostToolUseFailure | PostQuestion) ;;
             *) return 1 ;;
         esac
-        tmux -L tabs display-message -p -t "$TMUX_PANE" '#{pane_id}' >/dev/null 2>&1 || return 1
+        [ "$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{pane_id}' 2>/dev/null)" = "$TMUX_PANE" ] || return 1
 
         case $event in
             SessionEnd)
