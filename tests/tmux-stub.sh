@@ -4,7 +4,8 @@ set -euo pipefail
 printf '%s\n' "$*" >>"$TMUX_CALLS"
 [ "${1:-}" != -L ] || shift 2
 case ${1:-} in
-    display-message | list-windows) printf '@1\n' ;;
+    display-message) [ "${TMUX_PANE_VALID:-1}" != 0 ] || exit 1; printf '@1\n' ;;
+    list-windows) printf '@1\n' ;;
     list-panes) printf '%s\n' "$TMUX_STATES" ;;
     set-option | refresh-client) ;;
     *)

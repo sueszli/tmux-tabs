@@ -120,6 +120,17 @@ load test-helper.sh
     [ ! -s "$TMUX_CALLS" ]
 }
 
+@test "agent hooks fail without changing a stale pane" {
+    export TMUX_PANE_VALID=0
+    local agent
+    for agent in claude codex pi; do
+        run tabs_agent_hook "$agent" Stop
+        assert_failure
+    done
+    run grep -F 'set-option' "$TMUX_CALLS"
+    assert_failure
+}
+
 @test "session start sets the agent and idle state" {
     run tabs_agent_hook pi SessionStart
     assert_success

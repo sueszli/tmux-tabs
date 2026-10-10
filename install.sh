@@ -9,15 +9,6 @@ set -euox pipefail
 target="${HOME:?}/.local/bin/tabs"
 command -v tmux >/dev/null
 command -v jq >/dev/null
-if command -v codex >/dev/null; then
-    IFS=: read -r -a path_dirs <<<"$PATH"
-    for directory in "${path_dirs[@]}"; do
-        [ "$directory" != "${target%/*}" ] || break
-        [ ! -x "${directory:-.}/codex" ] || [ "${directory:-.}/codex" -ef "$target" ] || exit 1
-    done
-    [ "$directory" = "${target%/*}" ]
-    [ ! -e "${target%/*}/codex" ] || [ "${target%/*}/codex" -ef "$target" ]
-fi
 # pin both downloads to one revision
 revision=${TABS_REVISION:-$(curl -fsSL https://api.github.com/repos/sueszli/tmux-tabs/commits/master | jq -er '.sha')}
 [[ $revision =~ ^[0-9a-f]{40}$ ]]
