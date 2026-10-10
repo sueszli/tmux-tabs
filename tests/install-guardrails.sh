@@ -3,7 +3,7 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 sandbox=$(mktemp -d)
 trap 'rm -rf "$sandbox"' EXIT
-export HOME="$sandbox/home space" XDG_CONFIG_HOME=$sandbox/config
+export HOME="$sandbox/home space '\"quote" XDG_CONFIG_HOME=$sandbox/config
 export CLAUDE_CONFIG_DIR=$HOME/.claude CODEX_HOME=$HOME/.codex PI_CODING_AGENT_DIR=$HOME/.pi/agent
 export TABS_TEST_REPO=$repo TABS_TEST_LOG=$sandbox/downloads
 export SHELL=/bin/zsh ZDOTDIR="$sandbox/zsh config"
@@ -30,11 +30,14 @@ esac
 MOCK
 printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/tmux"
 chmod +x "$sandbox/bin/"*
+printf '#!/usr/bin/env bash\nexit 99\n' >"$HOME/.local/bin/codex"
+chmod +x "$HOME/.local/bin/codex"
 
 # every install sets up all three harnesses
 bash "$repo/install.sh"
 cmp "$ZDOTDIR/.zshrc.before-tabs" <(printf 'export KEEP_ME=1\n')
 grep -q '^alias codex=' "$ZDOTDIR/.zshrc"
+cmp "$HOME/.local/bin/codex" <(printf '#!/usr/bin/env bash\nexit 99\n')
 cp "$ZDOTDIR/.zshrc" "$sandbox/zshrc"
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do
     grep -q 'An explicit request IS authorization' "$file"
@@ -65,11 +68,12 @@ cmp "$sandbox/module" "$HOME/.local/share/tmux-tabs/guardrails.sh"
 cmp "$sandbox/updated" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
 if TABS_REVISION=invalid bash "$repo/install.sh" 2>/dev/null; then exit 1; fi
 SHELL=/bin/bash bash "$repo/install.sh"
-# a competing executable earlier in PATH must not bypass the installed shim
+grep -q '^alias codex=' "$HOME/.profile"
 printf '#!/usr/bin/env bash\nexit 99\n' >"$sandbox/bin/codex"
 chmod +x "$sandbox/bin/codex"
-bash -ic '[[ $(alias codex) == *"$HOME/.local/bin/codex"* ]] || exit 1; eval codex' 2>/dev/null
+bash -ic codex 2>/dev/null
+bash --rcfile "$HOME/.profile" -ic codex 2>/dev/null
 if command -v zsh >/dev/null; then
-    zsh -ic '[[ $(alias codex) == *"$HOME/.local/bin/codex"* ]] || exit 1; eval codex' 2>/dev/null
+    zsh -ic codex 2>/dev/null
 fi
 printf 'installer guardrails tests passed\n'

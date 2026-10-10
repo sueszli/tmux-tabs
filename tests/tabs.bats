@@ -196,12 +196,20 @@ hello world'
 
 @test "feedback from any pane highlights its window" {
     export TMUX_STATES=$'working\nfeedback\nidle'
-    run tabs_agent_hook claude Stop
-    assert_success
-    run grep -Fx -- '-L tabs set-option -w -t @1 window-status-style bg=colour34,fg=colour232' "$TMUX_CALLS"
-    assert_success
-    run grep -Fx -- '-L tabs set-option -w -t @1 window-status-current-style bg=colour34,fg=colour232,bold' "$TMUX_CALLS"
-    assert_success
+    local agent
+    for agent in claude codex pi; do
+        : >"$TMUX_CALLS"
+        run tabs_agent_hook "$agent" Stop
+        assert_success
+        run grep -Fx -- "-L tabs set-option -p -t %7 @tabs_agent $agent" "$TMUX_CALLS"
+        assert_success
+        run grep -Fx -- '-L tabs set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
+        assert_success
+        run grep -Fx -- '-L tabs set-option -w -t @1 window-status-style bg=colour34,fg=colour232' "$TMUX_CALLS"
+        assert_success
+        run grep -Fx -- '-L tabs set-option -w -t @1 window-status-current-style bg=colour34,fg=colour232,bold' "$TMUX_CALLS"
+        assert_success
+    done
 }
 
 @test "windows without feedback have their local styles cleared" {
