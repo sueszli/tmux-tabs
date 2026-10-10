@@ -47,3 +47,17 @@ for shim in "${target%/*}/codex" "$HOME/bin/codex"; do
         ln -s "$target" "$shim"
     fi
 done
+
+# keep shell path managers from bypassing the shim
+shell=${SHELL:-}
+case ${shell##*/} in
+    zsh) rc=${ZDOTDIR:-$HOME}/.zshrc ;;
+    bash) rc=$HOME/.bashrc ;;
+    *) exit 0 ;;
+esac
+[ "${target%/*}/codex" -ef "$target" ]
+printf -v alias_command 'alias codex=%q' "\"${target%/*}/codex\""
+if ! grep -Fxq "$alias_command" "$rc" 2>/dev/null; then
+    [ ! -f "$rc" ] || [ -e "$rc.before-tabs" ] || cp -p "$rc" "$rc.before-tabs"
+    printf '\n%s\n' "$alias_command" >>"$rc"
+fi

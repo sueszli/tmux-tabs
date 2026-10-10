@@ -2,6 +2,25 @@
 
 load test-helper.sh
 
+@test "Codex shim disables the daemon in tabs and preserves the pane environment" {
+    mkdir -p "$HOME/.local/bin"
+    ln -s "$PROJECT_ROOT/tmux-tabs.sh" "$HOME/.local/bin/codex"
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$TMUX_PANE" "$@"\n' >"$BATS_TEST_TMPDIR/bin/codex"
+    chmod +x "$BATS_TEST_TMPDIR/bin/codex"
+    local pane
+    for pane in %7 %8; do
+        run env TMUX_PANE="$pane" "$HOME/.local/bin/codex" 'hello world'
+        assert_success
+        assert_output "$pane
+--no-daemon
+hello world"
+    done
+    run env TMUX=/tmp/other,123,0 "$HOME/.local/bin/codex" 'hello world'
+    assert_success
+    assert_output '%7
+hello world'
+}
+
 @test "sourcing the script has no tmux or installation side effects" {
     run bash -c 'source "$1"' bash "$PROJECT_ROOT/tmux-tabs.sh"
     assert_success
