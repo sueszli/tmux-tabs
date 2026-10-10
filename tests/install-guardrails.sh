@@ -30,11 +30,10 @@ printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/codex"
 chmod +x "$sandbox/bin/"*
 
 # every install sets up all three harnesses
-bash "$repo/install.sh" 2>"$sandbox/install.err"
-grep -Fq "Warning: codex resolves to $sandbox/bin/codex instead of the tabs shim." "$sandbox/install.err"
+if bash "$repo/install.sh" 2>/dev/null; then exit 1; fi
 [ "$HOME/.local/bin/codex" -ef "$HOME/.local/bin/tabs" ]
-PATH="$HOME/.local/bin:$PATH" bash "$repo/install.sh" 2>"$sandbox/install-shim.err"
-if grep -Fq 'Warning: codex resolves to' "$sandbox/install-shim.err"; then exit 1; fi
+export PATH="$HOME/.local/bin:$PATH"
+bash "$repo/install.sh"
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do
     grep -q 'An explicit request IS authorization' "$file"
 done
