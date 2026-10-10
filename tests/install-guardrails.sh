@@ -30,10 +30,12 @@ printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/codex"
 chmod +x "$sandbox/bin/"*
 
 # every install sets up all three harnesses
-if bash "$repo/install.sh" 2>/dev/null; then exit 1; fi
-[ "$HOME/.local/bin/codex" -ef "$HOME/.local/bin/tabs" ]
+if bash "$repo/install.sh" >/dev/null 2>&1; then exit 1; fi
+[ ! -e "$HOME/.local/bin/tabs" ]
+[ ! -e "$HOME/.local/share/tmux-tabs/guardrails.sh" ]
 export PATH="$HOME/.local/bin:$PATH"
 bash "$repo/install.sh"
+[ "$HOME/.local/bin/codex" -ef "$HOME/.local/bin/tabs" ]
 for file in "$CLAUDE_CONFIG_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$PI_CODING_AGENT_DIR/AGENTS.md"; do
     grep -q 'An explicit request IS authorization' "$file"
 done
