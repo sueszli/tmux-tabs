@@ -47,3 +47,9 @@ for shim in "${target%/*}/codex" "$HOME/bin/codex"; do
         ln -s "$target" "$shim"
     fi
 done
+
+resolved=$(command -v codex || true)
+if [ -n "$resolved" ] && [ ! "$resolved" -ef "$target" ]; then
+    printf 'Warning: codex resolves to %s instead of the tabs shim. Put %s first on PATH or invoke %s directly; otherwise Codex tab status may not update.\n' \
+        "$resolved" "${target%/*}" "${target%/*}/codex" >&2
+fi

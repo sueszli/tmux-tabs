@@ -55,3 +55,7 @@ update with:
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
+the installer also creates `~/.local/bin/codex`. inside tabs, use this shim so
+Codex runs locally and its hooks can update the correct tab. check `command -v codex`:
+if another copy comes first on your path, put `~/.local/bin` first or invoke
+`~/.local/bin/codex` directly. restart existing Codex sessions after changing this.
