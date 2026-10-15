@@ -9,8 +9,9 @@ TABS_DEFAULT_POLICY='# Writing for people
 
 Human attention is scarce. Every word you write for a person costs it:
 replies, code comments, commit messages, PR/MR titles and descriptions,
-reviews and status updates. Assume the reader may have ADHD or be
-autistic, and write so they can act after one quick read.
+reviews and status updates. Assume the reader is busy, will scan
+rather than read, and will take your words literally. Write so they
+can act after one quick read.
 
 Lead with the answer, result or decision. If the reader must act, say
 what, by when and how urgent, in the first lines; never bury it. Say
