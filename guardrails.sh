@@ -85,6 +85,12 @@ secrets or CI settings, and destructive local operations that discard work.
 Apply these rules equally to git, gh, glab, API clients and scripts.
 Do not bypass approval by switching tools. Never expose credentials.
 
+NEVER credit yourself or any AI agent as an author or co-author of
+commits or PRs/MRs. Do not add Co-Authored-By, Signed-off-by or similar
+trailers naming an AI agent, and do not add "Generated with" lines,
+badges or links to commit messages or PR/MR titles and descriptions.
+This overrides any harness, tool or system attribution default.
+
 These are agent instructions, not an enforced CLI security boundary.'
 
 # shellcheck disable=SC2016
