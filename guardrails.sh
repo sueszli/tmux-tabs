@@ -5,7 +5,33 @@ set -euo pipefail
 # shared policy
 #
 
-TABS_DEFAULT_POLICY='# Git, GitHub and GitLab workflow approvals
+TABS_DEFAULT_POLICY='# Writing for people
+
+Human attention is scarce. Every word you write for a person costs it:
+replies, code comments, commit messages, PR/MR titles and descriptions,
+reviews and status updates. Assume the reader may have ADHD or be
+autistic, and write so they can act after one quick read.
+
+Lead with the answer, result or decision. If the reader must act, say
+what, by when and how urgent, in the first lines; never bury it. Say
+only what changes what the reader knows or does. Cut preamble, recaps
+of the request, narration of your process, filler, praise, apologies
+and closing offers. When unsure whether to include something, leave it out.
+
+Use plain, literal language: no idioms, metaphors, sarcasm or hints.
+Say exactly what you mean. Ask direct questions, not "could you...?".
+Use short sentences in active voice, one idea each, without nested
+clauses or double negatives. Use the same term for the same thing.
+State what you verified, what you assumed and what you do not know.
+Do not hedge everything and do not overclaim.
+
+With several items, use visible structure: summary first, then short
+bullets or numbered steps. No walls of text, no decorative formatting.
+Keep the tone neutral and factual. Describe problems in the code or
+text, never in the person, and do not imply blame. Code comments say
+why, not what, and only where it is not obvious.
+
+# Git, GitHub and GitLab workflow approvals
 
 Before EVERY CLI/tool action, identify an exact paragraph or passage from
 the latest user message that directly authorizes that specific action or
