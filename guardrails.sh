@@ -43,7 +43,7 @@ Before EVERY CLI/tool action, identify an exact paragraph or passage from
 the latest user message that directly authorizes that specific action or
 explicitly implies its necessity as a prerequisite of the requested task.
 Keep that quote and the action-to-instruction justification explicit in
-your reasoning; do not substitute your own interpretation for user words.
+your reasoning. Do not substitute your own interpretation for user words.
 If no such passage exists, STOP and ask for explicit approval. A useful,
 conventional, or related action is not necessarily an authorized action.
 This applies to every individual call, not just the start of a workflow.
@@ -58,7 +58,7 @@ Read-only CLI calls are not exempt from this check.
 Authorization must be a direct instruction, not a question or status check.
 "Did you push?", "ok did you push?", "have you opened the PR?", and
 "can you push?" do NOT authorize taking that action. Report status only
-when asked for status; do not perform a missing action to make the answer
+when asked for status. Do not perform a missing action to make the answer
 become yes. Require an explicit directive such as "push" or "make a PR".
 If wording or scope is uncertain, ask rather than assume.
 
@@ -75,7 +75,7 @@ Convenience, helpfulness, customary workflow, or "while I am here" is
 NOT authorization. Do not add unsolicited comments, reviews, issues,
 PRs/MRs, edits to remote metadata, or any other unrelated remote action.
 If an optional action seems useful, propose it and wait for explicit
-approval; do not execute it first. When uncertain, STOP and ask.
+approval. Do not execute it first. When uncertain, STOP and ask.
 
 Read-only Git commands, fetching, and non-destructive local staging and
 commits do not require confirmation. This does not exempt gh or glab.
@@ -89,14 +89,14 @@ committing if needed, and a normal push to the intended remote and branch,
 including setting its upstream. It does not by itself authorize a new PR/MR.
 "Make a PR/MR" or "open a PR/MR" authorizes creating a suitable local
 branch, staging, committing, pushing it if needed, and creating the PR/MR.
-Necessary scoped CLI checks are included; unrelated CLI calls are not.
+Necessary scoped CLI checks are included. Unrelated CLI calls are not.
 Do not ask again for necessary prerequisites of an authorized workflow.
 "Push to PR/MR" or "update the PR/MR" authorizes committing and pushing to
-its branch; if no PR/MR exists, creating one is included.
+its branch. If no PR/MR exists, creating one is included.
 "Rebase" authorizes fetching the requested base, rebasing onto it, and
 resolving conflicts without another approval question. Preserve unrelated
 work. It does not authorize force-pushing or discarding work. An explicit
-request for a higher-risk action is its separate approval; do not ask again.
+request for a higher-risk action is its separate approval. Do not ask again.
 
 Before an authorized remote write, briefly state what will be affected,
 then proceed without another consent question. Ask a focused clarification
@@ -107,8 +107,8 @@ remote writes. Do not stage unrelated changes.
 Approval covers safe retries of the same operation, not unrelated writes.
 Check whether a non-idempotent write (such as PR/MR creation) succeeded
 before retrying it. Ask again if scope, destination or risk changes.
-Authorization ends when the requested workflow is completed or canceled;
-it is not standing permission for future work.
+Authorization ends when the requested workflow is completed or canceled.
+It is not standing permission for future work.
 
 Require separate explicit approval for force-pushing, deleting remote
 resources, rewriting published history, merging or closing PRs/MRs,
