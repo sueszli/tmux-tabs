@@ -26,6 +26,7 @@ Use plain, literal language: no idioms, metaphors, sarcasm or hints.
 Say exactly what you mean. Ask direct questions, not "could you...?".
 Use short sentences in active voice, one idea each, without nested
 clauses or double negatives. Use the same term for the same thing.
+Do not use em dashes or semicolons where a period or comma works.
 State what you verified, what you assumed and what you do not know.
 Do not hedge everything and do not overclaim.
 
