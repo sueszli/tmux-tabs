@@ -4,35 +4,7 @@
 \__|_|  _|  _|\__,_| _/\_\ \__|\__,_|_.__/ ____/
 
 
-tmux reduced to browser-style tabs.
-run many coding agents at once and keep them alive across ssh disconnects.
-works on mac and linux with bash, curl and tmux 3.0 or newer.
-
-vibe coded slop. please don't trust the code.
-
-
-┌──────────────────────────────────────────────────────────────────┐
-│ 1 zsh   2 codex   3 pi  [4 claude]     ^T shell  ^W close  ^← ^→ │
-├──────────────────────────────────────────────────────────────────┤
-│ ╭─ Claude Code ────────────────────────────────────────────────╮ │
-│ │                                                              │ │
-│ │                     Welcome back Yahya!                      │ │
-│ │                                                              │ │
-│ │                           ▐▛███▜▌                            │ │
-│ │                          ▝▜█████▛▘                           │ │
-│ │                            ▘▘ ▝▝                             │ │
-│ │                                                              │ │
-│ │               Opus 5 (1M context) with xhig…                 │ │
-│ │                         Claude Max                           │ │
-│ │                            ~/dev                             │ │
-│ │                                                              │ │
-│ ╰──────────────────────────────────────────────────────────────╯ │
-│                                                                  │
-│ ──────────────────────────────────────────────────────────────── │
-│ ❯ Try "how does tmux work?"                                      │
-│ ──────────────────────────────────────────────────────────────── │
-│   ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents   │
-└──────────────────────────────────────────────────────────────────┘
+manage tmux sessions just like browser tabs
 
 
 keys:
@@ -51,6 +23,8 @@ update with:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/update.sh | bash
 
+
+works on mac and linux with bash, curl and tmux 3.0 or newer.
 
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
