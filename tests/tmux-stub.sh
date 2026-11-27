@@ -6,8 +6,10 @@ printf '%s\n' "$*" >>"$TMUX_CALLS"
 case ${1:-} in
     display-message)
         [ "${TMUX_PANE_VALID:-1}" != 0 ] || exit 0
-        case ${!#} in
+        case ${5:-} in
             '#{pane_id}') printf '%s\n' "$TMUX_PANE" ;;
+            '#{@tabs_state}') printf '%s\n' "${TMUX_PREVIOUS_STATE:-working}" ;;
+            '#{window_name} · #{b:pane_current_path} · #{host_short}') printf '@work · project dir · host\n' ;;
             *) printf '@1\n' ;;
         esac
         ;;

@@ -152,9 +152,33 @@ tabs_install_hooks() (
 # agent status
 #
 
+tabs_notify() {
+    local agent=$1 event=$2 file=${XDG_CONFIG_HOME:-$HOME/.config}/tmux-tabs/ntfy-topic
+    local topic='' reason body payload='' message LC_ALL=C
+    [ -f "$file" ] || return 0
+    IFS= read -r topic <"$file" || :
+    [[ $topic =~ ^[A-Za-z0-9_-]{1,64}$ ]] || return 0
+
+    case $event in
+        Stop) reason='done' ;;
+        StopFailure) reason=failed ;;
+        Interrupt) reason=interrupted ;;
+        PermissionRequest) reason='needs permission' ;;
+        PreQuestion) reason='has a question' ;;
+    esac
+    body=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{window_name} · #{b:pane_current_path} · #{host_short}') || body=$TMUX_PANE
+    if [ ! -t 0 ]; then
+        IFS= read -r -d '' -t 1 payload || :
+        message=$(jq -r '(.last_assistant_message // .message // empty) | strings | gsub("[\r\n]+"; " ") | .[:200]' <<<"$payload") || message=
+        [ -z "$message" ] || body+=$'\n'$message
+    fi
+
+    printf '%s' "$body" | curl -m 10 -H "Title: $agent $reason" -H 'Priority: high' --data-binary @- "https://ntfy.sh/$topic"
+}
+
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
-    local agent event style window windows
+    local agent event previous style window windows
     if [ "${1:-}" != refresh ]; then
         if [[ ${TMUX%%,*} != */tabs || -z ${TMUX_PANE:-} ]]; then
             printf '{}\n'
@@ -180,8 +204,12 @@ tabs_agent_hook() {
                 tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state idle >/dev/null 2>&1
                 ;;
             Stop | StopFailure | Interrupt | PermissionRequest | PreQuestion)
-                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
-                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state feedback >/dev/null 2>&1
+                # overlapping hooks can see the same old state
+                if previous=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{@tabs_state}' \; \
+                    set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" \; \
+                    set-option -p -t "$TMUX_PANE" @tabs_state feedback 2>/dev/null) && [ "$previous" != feedback ]; then
+                    tabs_notify "$agent" "$event" <&0 >/dev/null 2>&1 &
+                fi
                 ;;
             UserPromptSubmit | PostToolUse | PostToolUseFailure | PostQuestion)
                 tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1

@@ -183,8 +183,56 @@ hello world'
         run tabs_agent_hook claude "$event"
         assert_success
         assert_output '{}'
-        run grep -Fx -- '-L tabs set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
+        run grep -F -- 'set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
         assert_success
+    done
+}
+
+stub_curl() {
+    export CURL_CALLS="$BATS_TEST_TMPDIR/curl-calls"
+    cat >"$BATS_TEST_TMPDIR/bin/curl" <<'MOCK'
+#!/usr/bin/env bash
+{ printf '%s\n' "$@"; cat; } >>"$CURL_CALLS"
+printf 'curl output\n'
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/bin/curl"
+}
+
+feedback_hook() {
+    tabs_agent_hook "$@" || return
+    wait
+}
+
+@test "a feedback transition sends one ntfy push with a 200-character excerpt" {
+    stub_curl
+    mkdir -p "$XDG_CONFIG_HOME/tmux-tabs"
+    printf 'tabs-example' >"$XDG_CONFIG_HOME/tmux-tabs/ntfy-topic"
+    local message
+    printf -v message '%0198d' 0
+
+    run feedback_hook codex Stop <<<"{\"message\":\"ignored\",\"last_assistant_message\":\"a\\n${message}extra\"}"
+    assert_success
+    assert_output '{}'
+
+    TMUX_PREVIOUS_STATE=feedback run feedback_hook codex Stop
+    assert_success
+    assert_output '{}'
+    cmp "$CURL_CALLS" <(
+        printf '%s\n' -m 10 -H 'Title: codex done' -H 'Priority: high' --data-binary @- https://ntfy.sh/tabs-example
+        printf '@work · project dir · host\na %s' "$message"
+    )
+}
+
+@test "feedback sends no ntfy push without a valid topic file" {
+    stub_curl
+    mkdir -p "$XDG_CONFIG_HOME/tmux-tabs"
+    local topic
+    for topic in missing '' 'invalid/topic'; do
+        [ "$topic" = missing ] || printf '%s\n' "$topic" >"$XDG_CONFIG_HOME/tmux-tabs/ntfy-topic"
+        run feedback_hook claude Stop
+        assert_success
+        assert_output '{}'
+        [ ! -e "$CURL_CALLS" ]
     done
 }
 
@@ -204,9 +252,9 @@ hello world'
         : >"$TMUX_CALLS"
         run tabs_agent_hook "$agent" Stop
         assert_success
-        run grep -Fx -- "-L tabs set-option -p -t %7 @tabs_agent $agent" "$TMUX_CALLS"
+        run grep -F -- "set-option -p -t %7 @tabs_agent $agent" "$TMUX_CALLS"
         assert_success
-        run grep -Fx -- '-L tabs set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
+        run grep -F -- 'set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
         assert_success
         run grep -Fx -- '-L tabs set-option -w -t @1 window-status-style bg=colour34,fg=colour232' "$TMUX_CALLS"
         assert_success

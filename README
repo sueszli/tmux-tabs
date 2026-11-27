@@ -36,3 +36,6 @@ works on mac and linux with bash, curl and tmux 3.0 or newer.
 make sure `~/.local/bin` is on your path, then run `tabs`.
 to use `tabs` when you type `tmux`, add `alias tmux=tabs` to your shell config.
 `command tmux` still runs the real tmux.
+
+choose an ntfy topic during install and subscribe to it in the ntfy app.
+pushes go through ntfy.sh and may include a short excerpt of agent text.

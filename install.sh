@@ -37,6 +37,23 @@ BASH_ENV="$target" bash -c tabs_install_hooks
 # install global rules on every install/update
 bash "$module_dir/guardrails.sh"
 
+configure_ntfy() {
+    local file=${XDG_CONFIG_HOME:-$HOME/.config}/tmux-tabs/ntfy-topic topic code LC_ALL=C
+    [ ! -e "$file" ] || return 0
+    code=$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n') || return 0
+    printf 'ntfy topic (try tabs-%s, enter to skip): ' "$code"
+    IFS= read -r topic || return 0
+    [[ -z $topic || $topic =~ ^[A-Za-z0-9_-]{1,64}$ ]] || return 0
+    mkdir -p "${file%/*}" && (umask 077 && set -C && printf '%s' "${topic:+$topic$'\n'}" >"$file") || return 0
+    [ -z "$topic" ] || printf 'install the ntfy app and subscribe to %s\n' "$topic"
+}
+
+set +x
+if [ -r /dev/tty ]; then
+    configure_ntfy 2>/dev/null </dev/tty >/dev/tty || :
+fi
+set -x
+
 #
 # codex shim
 #

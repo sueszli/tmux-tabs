@@ -6,6 +6,7 @@ setup() {
     load "$PROJECT_ROOT/.tools/bats-assert/load.bash"
     export HOME="$BATS_TEST_TMPDIR/home"
     export TMPDIR="$BATS_TEST_TMPDIR"
+    export XDG_CONFIG_HOME="$HOME/.config"
     export PI_CODING_AGENT_DIR="$HOME/.pi/agent"
     export TMUX=/tmp/test/tabs,123,0 TMUX_PANE=%7
     export TMUX_CALLS="$BATS_TEST_TMPDIR/tmux-calls"
