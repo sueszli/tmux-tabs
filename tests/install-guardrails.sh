@@ -8,8 +8,11 @@ export CLAUDE_CONFIG_DIR=$HOME/.claude CODEX_HOME=$HOME/.codex PI_CODING_AGENT_D
 export TABS_TEST_REPO=$repo TABS_TEST_LOG=$sandbox/downloads
 export SHELL=/bin/zsh ZDOTDIR="$sandbox/zsh config"
 unset TABS_REVISION
-mkdir -p "$sandbox/bin" "$HOME/.local/bin"
-mkdir -p "$ZDOTDIR"
+mkdir -p "$sandbox/bin" "$HOME/.local/bin" "$ZDOTDIR" "$XDG_CONFIG_HOME/tmux-tabs"
+(
+    umask 077
+    : >"$XDG_CONFIG_HOME/tmux-tabs/telegram"
+)
 printf 'export KEEP_ME=1\n' >"$ZDOTDIR/.zshrc"
 export PATH=$sandbox/bin:$PATH
 # mock network and hooks

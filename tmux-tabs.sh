@@ -152,9 +152,35 @@ tabs_install_hooks() (
 # agent status
 #
 
+tabs_telegram_notify() {
+    local config=${XDG_CONFIG_HOME:-$HOME/.config}/tmux-tabs/telegram
+    local token chat_id reason context snippet=
+    [ -f "$config" ] && {
+        IFS= read -r token
+        IFS= read -r chat_id || :
+    } <"$config" || return 0
+    [[ $token =~ ^[0-9]+:[A-Za-z0-9_-]+$ && $chat_id =~ ^-?[0-9]+$ ]] || return 0
+
+    case $2 in
+        Stop) reason='done' ;;
+        StopFailure) reason=failed ;;
+        Interrupt) reason=interrupted ;;
+        PermissionRequest) reason='needs permission' ;;
+        PreQuestion) reason='has a question' ;;
+    esac
+    context=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{window_name} · #{b:pane_current_path} · #{host_short}') || context=$TMUX_PANE
+    if [ ! -t 0 ]; then
+        IFS= read -r -d '' -t 1 snippet || :
+        snippet=$(printf '%s' "$snippet" | jq -r '(.last_assistant_message // .message) | strings | gsub("[\r\n]+"; " ") | .[:200]') || snippet=
+    fi
+    printf '%s\n%s%s' "$1 $reason" "$context" "${snippet:+$'\n'$snippet}" |
+        curl -q -fs -m 10 -K <(printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$token") \
+            --data-urlencode "chat_id=$chat_id" --data-urlencode 'text@-'
+}
+
 tabs_agent_hook() {
     # update pane state and color tabs waiting for input
-    local agent event style window windows
+    local agent event style window windows previous
     if [ "${1:-}" != refresh ]; then
         if [[ ${TMUX%%,*} != */tabs || -z ${TMUX_PANE:-} ]]; then
             printf '{}\n'
@@ -180,8 +206,11 @@ tabs_agent_hook() {
                 tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state idle >/dev/null 2>&1
                 ;;
             Stop | StopFailure | Interrupt | PermissionRequest | PreQuestion)
-                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1
-                tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_state feedback >/dev/null 2>&1
+                if previous=$(tmux -L tabs display-message -p -t "$TMUX_PANE" '#{@tabs_state}' \; \
+                    set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" \; \
+                    set-option -p -t "$TMUX_PANE" @tabs_state feedback 2>/dev/null) && [[ $previous != feedback ]]; then
+                    tabs_telegram_notify "$agent" "$event" <&0 >/dev/null 2>&1 3>&- &
+                fi
                 ;;
             UserPromptSubmit | PostToolUse | PostToolUseFailure | PostQuestion)
                 tmux -L tabs set-option -p -t "$TMUX_PANE" @tabs_agent "$agent" >/dev/null 2>&1

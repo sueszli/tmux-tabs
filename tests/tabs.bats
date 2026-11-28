@@ -183,9 +183,42 @@ hello world'
         run tabs_agent_hook claude "$event"
         assert_success
         assert_output '{}'
-        run grep -Fx -- '-L tabs set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
+        grep -Fxq -- '-L tabs display-message -p -t %7 #{@tabs_state} ; set-option -p -t %7 @tabs_agent claude ; set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
+    done
+}
+
+@test "entering feedback sends one Telegram message with the token only in curl config" {
+    local token=123:fake-bot_token
+    printf '%s\n' "$token" -42 >"$TELEGRAM_CONFIG"
+    TMUX_PREVIOUS_STATE=working run feedback_hook <<<'{"last_assistant_message":"can you\ncheck this?","message":"ignored"}'
+    assert_success
+    assert_output '{}'
+
+    assert_equal "$(cat "$CURL_LOG.stdin")" $'claude needs permission\nbuild & test · repo · host\ncan you check this?'
+    assert_equal "$(cat "$CURL_LOG.config")" "url = \"https://api.telegram.org/bot$token/sendMessage\""
+    grep -Fxq -- 'chat_id=-42' "$CURL_LOG.args"
+    assert_equal "$(grep -Fxc -- 'text@-' "$CURL_LOG.args")" 1
+    run grep -F -- "$token" "$CURL_LOG.args"
+    assert_failure 1
+}
+
+@test "an agent already in feedback sends no Telegram message" {
+    printf '123:fake-bot_token\n-42\n' >"$TELEGRAM_CONFIG"
+    TMUX_PREVIOUS_STATE=feedback run feedback_hook </dev/null
+    assert_success
+    [ ! -e "$CURL_LOG.args" ]
+}
+
+@test "missing, empty or malformed Telegram config sends no message" {
+    run feedback_hook </dev/null
+    assert_success
+    local config
+    for config in '' $'invalid-token\n-42' $'123:fake-bot_token\ninvalid-chat'; do
+        printf '%s' "$config" >"$TELEGRAM_CONFIG"
+        run feedback_hook </dev/null
         assert_success
     done
+    [ ! -e "$CURL_LOG.args" ]
 }
 
 @test "session end clears both pane options" {
@@ -204,10 +237,7 @@ hello world'
         : >"$TMUX_CALLS"
         run tabs_agent_hook "$agent" Stop
         assert_success
-        run grep -Fx -- "-L tabs set-option -p -t %7 @tabs_agent $agent" "$TMUX_CALLS"
-        assert_success
-        run grep -Fx -- '-L tabs set-option -p -t %7 @tabs_state feedback' "$TMUX_CALLS"
-        assert_success
+        grep -Fq -- "; set-option -p -t %7 @tabs_agent $agent ; set-option -p -t %7 @tabs_state feedback" "$TMUX_CALLS"
         run grep -Fx -- '-L tabs set-option -w -t @1 window-status-style bg=colour34,fg=colour232' "$TMUX_CALLS"
         assert_success
         run grep -Fx -- '-L tabs set-option -w -t @1 window-status-current-style bg=colour34,fg=colour232,bold' "$TMUX_CALLS"

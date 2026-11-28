@@ -20,6 +20,37 @@ mkdir -p "$module_dir"
 module_tmp=$(mktemp "$module_dir/guardrails.XXXXXX")
 trap 'rm -f "$tmp" "$module_tmp"' EXIT
 
+configure_telegram() (
+    set +x
+    local config=${XDG_CONFIG_HOME:-$HOME/.config}/tmux-tabs/telegram token chat_id
+    [[ ! -e $config && ! -L $config ]] || return 0
+    { exec 3<>/dev/tty; } 2>/dev/null || return 0
+
+    printf 'telegram bot token from @BotFather (enter to skip): ' >&3
+    IFS= read -rs token <&3 || return 0
+    printf '\n' >&3
+    umask 077
+    set -C
+    if [ -z "$token" ]; then
+        mkdir -p "${config%/*}" && : >"$config"
+        return
+    fi
+    [[ $token =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] || return 0
+
+    printf 'send any message to your bot in telegram, then press enter\n' >&3
+    read -r <&3 || return 0
+    if ! chat_id=$(curl -q -fs -m 10 -K <(printf 'url = "https://api.telegram.org/bot%s/getUpdates"\n' "$token") |
+        jq -r '.result | map(select(.message.chat.id)) | max_by(.update_id) | .message.chat.id') ||
+        [[ ! $chat_id =~ ^-?[0-9]+$ ]]; then
+        printf 'no telegram chat found\n' >&2
+        return 0
+    fi
+    curl -q -fsS -m 10 -K <(printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$token") \
+        --data-urlencode "chat_id=$chat_id" --data-urlencode 'text=tabs notifications enabled' >/dev/null &&
+        mkdir -p "${config%/*}" && printf '%s\n' "$token" "$chat_id" >"$config" &&
+        printf 'telegram notifications enabled\n'
+)
+
 #
 # installation
 #
@@ -34,6 +65,8 @@ if ! cmp -s "$tmp" "$target" || [ ! -x "$target" ]; then
     mv "$tmp" "$target"
 fi
 BASH_ENV="$target" bash -c tabs_install_hooks
+configure_telegram || true
+
 # install global rules on every install/update
 bash "$module_dir/guardrails.sh"
 

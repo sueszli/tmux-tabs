@@ -25,6 +25,7 @@ install to `~/.local/bin/tabs`:
 
     curl -fsSL https://raw.githubusercontent.com/sueszli/tmux-tabs/master/install.sh | bash
 
+enter a telegram bot token at install for phone notifications.
 
 update with:
 
